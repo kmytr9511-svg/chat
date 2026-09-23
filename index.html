@@ -893,4 +893,916 @@ function openGifts(userId) {
   if (!user) return;
   var gifts = [{em:'🌹',pts:5},{em:'❤️',pts:10},{em:'🍫',pts:15},{em:'🎂',pts:20},{em:'👑',pts:50},{em:'💎',pts:100}];
   var html = '<h2>🎁 هدية لـ ' + escapeHtml(user.name) + '</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0;">';
-  gifts.forEach(function(g) { html += '<button onclick="sendGift(' + user.id + ',' + g.pts + ')" class="gift-btn">' + g.em + '<br><small style="color:#ff00f
+  gifts.forEach(function(g) { html += '<button onclick="sendGift(' + user.id + ',' + g.pts + ')" class="gift-btn">' + g.em + '<br><small style="color:#ff00ff;font-size:11px;">+' + g.pts + '</small></button>'; });
+  html += '</div><button class="close-modal" onclick="closeModals()">إغلاق</button>';
+  document.getElementById('gifts-content').innerHTML = html;
+  document.getElementById('gifts-modal').classList.remove('hidden');
+}
+
+function sendGift(userId, points) {
+  var users = DB.u;
+  var myU = users.find(function(x){return x.id===me.id;});
+  var receiver = users.find(function(x){return x.id===userId;});
+  if (!myU || !receiver) return;
+  receiver.points += points;
+  myU.points += Math.floor(points/2);
+  DB.u = users; me = myU; updateMyInfo();
+  addSystem('🎁 ' + me.name + ' أرسل هدية لـ ' + receiver.name);
+  toast('🎁 +' + Math.floor(points/2) + ' نقطة', 'success');
+  closeModals();
+}
+
+function openGivePoints(userId) {
+  var user = DB.u.find(function(x){return x.id===userId;});
+  if (!user) return;
+  document.getElementById('points-target-name').textContent = 'إلى: ' + user.name;
+  document.getElementById('points-amount').value = '50';
+  document.getElementById('points-modal').classList.remove('hidden');
+}
+
+function givePoints() {
+  var amount = parseInt(document.getElementById('points-amount').value) || 0;
+  if (amount <= 0) return;
+  var users = DB.u;
+  var myU = users.find(function(x){return x.id===me.id;});
+  if (me.role !== 'admin') {
+    if (myU.points < amount) return toast('نقاطك ناقصة', 'error');
+    myU.points -= amount;
+  }
+  DB.u = users; me = myU; updateMyInfo();
+  addSystem('💰 ' + me.name + ' أهدى ' + amount + ' نقطة');
+  toast('💰 تم الإهداء', 'success');
+  closeModals();
+}
+
+function openDMs() {
+  var myDMs = DB.d.filter(function(d){return d.from===me.id || d.to===me.id;});
+  var chats = {};
+  myDMs.forEach(function(d) { var other = d.from===me.id?d.to:d.from; if (!chats[other]) chats[other]=[]; chats[other].push(d); });
+  var html = '';
+  if (me.role === 'admin') {
+    var allChats = {};
+    DB.d.forEach(function(d) {
+      var key = [Math.min(d.from, d.to), Math.max(d.from, d.to)].join('-');
+      if (!allChats[key]) allChats[key] = [];
+      allChats[key].push(d);
+    });
+    var monitored = Object.keys(allChats).filter(function(key) {
+      var parts = key.split('-').map(Number);
+      return parts[0] !== me.id && parts[1] !== me.id;
+    });
+    if (monitored.length > 0) {
+      html += '<div style="background:#ff004422;padding:8px;border-radius:8px;margin-bottom:10px;font-size:11px;color:#ff8888;text-align:center;">🔒 محادثات الأعضاء (سرية)</div>';
+      monitored.forEach(function(key) {
+        var parts = key.split('-').map(Number);
+        var uA = DB.u.find(function(u){return u.id===parts[0];});
+        var uB = DB.u.find(function(u){return u.id===parts[1];});
+        if (!uA || !uB) return;
+        var msgs = allChats[key];
+        var last = msgs[msgs.length-1];
+        html += '<div class="dm-item" onclick="closeModals();openDMMonitor(' + parts[0] + ',' + parts[1] + ')" style="border-color:#ff004455;"><img src="' + uA.avatar + '"><img src="' + uB.avatar + '" style="margin-right:-12px;"><div class="info"><b>' + escapeHtml(uA.name) + ' ↔ ' + escapeHtml(uB.name) + '</b><small>' + escapeHtml((last.text||'').substring(0,30)) + '</small></div></div>';
+      });
+    }
+  }
+  html += '<div style="color:#889;font-size:12px;margin:10px 0 5px;">💬 دردشاتك:</div>';
+  var keys = Object.keys(chats);
+  if (keys.length === 0) html += '<p style="text-align:center;color:#889;padding:20px;">ما عندك محادثات</p>';
+  else keys.forEach(function(otherId) {
+    var u = DB.u.find(function(x){return x.id===parseInt(otherId);});
+    if (!u) return;
+    var last = chats[otherId][chats[otherId].length-1];
+    html += '<div class="dm-item" onclick="closeModals();openChatWith(' + u.id + ')"><img src="' + u.avatar + '"><div class="info"><b>' + escapeHtml(u.name) + '</b><small>' + escapeHtml((last.text||'').substring(0,30)) + '</small></div></div>';
+  });
+  document.getElementById('dms-list').innerHTML = html;
+  document.getElementById('dms-modal').classList.remove('hidden');
+}
+
+function openDMMonitor(aId, bId) {
+  if (me.role !== 'admin') return;
+  var uA = DB.u.find(function(u){return u.id===aId;});
+  var uB = DB.u.find(function(u){return u.id===bId;});
+  if (!uA || !uB) return;
+  var chat = DB.d.filter(function(d){
+    return (d.from === aId && d.to === bId) || (d.from === bId && d.to === aId);
+  });
+  var html = '<h2>🔒 ' + escapeHtml(uA.name) + ' ↔ ' + escapeHtml(uB.name) + '</h2><div style="max-height:400px;overflow-y:auto;background:#0a0a1a;padding:10px;border-radius:10px;">';
+  if (chat.length === 0) html += '<p style="text-align:center;color:#667;font-size:12px;">ما في رسائل</p>';
+  chat.forEach(function(d) {
+    var sender = DB.u.find(function(x){return x.id===d.from;});
+    html += '<div style="padding:6px 10px;margin:4px 0;border-radius:10px;font-size:13px;background:#16162e;max-width:85%;"><span style="font-size:10px;color:#00ffff;display:block;margin-bottom:2px;">' + escapeHtml(sender?sender.name:'?') + '</span>' + escapeHtml(d.text) + '<div style="font-size:9px;color:#556;margin-top:2px;">' + new Date(d.time).toLocaleString('ar-EG') + '</div></div>';
+  });
+  html += '</div><p style="text-align:center;color:#ff8888;font-size:11px;margin-top:10px;">🔒 عرض فقط</p><button class="close-modal" onclick="closeModals()">إغلاق</button>';
+  document.getElementById('user-modal-content').innerHTML = html;
+  document.getElementById('user-modal').classList.remove('hidden');
+}
+
+function openChatWith(userId) {
+  var u = DB.u.find(function(x){return x.id===userId;});
+  if (!u) return;
+  chattingWith = userId;
+  document.getElementById('chat-title').textContent = '✉️ ' + me.name + ' ↔ ' + u.name;
+  renderChat();
+  document.getElementById('chat-modal').classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('dm-input').focus(); }, 100);
+}
+
+function renderChat() {
+  var box = document.getElementById('chat-box');
+  var dms = DB.d.filter(function(d){return (d.from===me.id && d.to===chattingWith) || (d.from===chattingWith && d.to===me.id);});
+  var html = '';
+  if (dms.length === 0) html = '<p style="text-align:center;color:#667;font-size:12px;">ما في رسائل</p>';
+  else dms.forEach(function(d) {
+    var isMe = d.from === me.id;
+    var sender = DB.u.find(function(x){return x.id===d.from;});
+    html += '<div style="padding:6px 10px;margin:4px 0;border-radius:10px;font-size:13px;max-width:80%;' + (isMe?'background:#1a1a3a;margin-left:auto;text-align:left;':'background:#16162e;margin-right:auto;') + '"><span style="font-size:10px;color:#00ffff;display:block;margin-bottom:2px;">' + escapeHtml(sender?sender.name:'?') + '</span>' + escapeHtml(d.text) + '</div>';
+  });
+  box.innerHTML = html;
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendDM() {
+  var input = document.getElementById('dm-input');
+  var text = input.value.trim();
+  if (!text || !chattingWith) return;
+  var dms = DB.d;
+  dms.push({ id:Date.now(), from:me.id, to:chattingWith, text:text, time:Date.now() });
+  DB.d = dms; input.value = ''; renderChat(); addPoints(2);
+}
+
+function openProfile() {
+  document.getElementById('profile-modal').classList.remove('hidden');
+  document.getElementById('p-avatar').value = me.avatar;
+  document.getElementById('p-name').value = me.name;
+  document.getElementById('p-bio').value = me.bio || '';
+  document.getElementById('p-pass').value = '';
+}
+
+function saveProfile() {
+  var newAvatar = document.getElementById('p-avatar').value.trim();
+  var newName = document.getElementById('p-name').value.trim();
+  var newBio = document.getElementById('p-bio').value.trim();
+  var newPass = document.getElementById('p-pass').value;
+  if (newName.length < 3) return toast('الاسم قصير', 'error');
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===me.id;});
+  if (users.find(function(x){return x.name===newName && x.id!==me.id;})) return toast('الاسم مستخدم', 'error');
+  u.avatar = newAvatar; u.name = newName; u.bio = newBio;
+  if (newPass && newPass.length >= 4) u.password = newPass;
+  DB.u = users; me = u;
+  updateMyInfo(); renderMessages(); closeModals();
+  toast('✅ تم التحديث', 'success');
+}
+
+function refreshAll() { updateMyInfo(); renderMessages(); toast('🔄 تم التحديث', 'success'); }
+
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function toast(text, type) {
+  var wrap = document.getElementById('toasts');
+  if (!wrap) return;
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = text;
+  wrap.appendChild(el);
+  setTimeout(function(){ el.style.opacity = '0'; setTimeout(function(){ el.remove(); }, 300); }, 2500);
+}
+
+function playSound() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var o = ctx.createOscillator();
+    var g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.1, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    o.start(); o.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+function openAI() {
+  document.getElementById('ai-modal').classList.remove('hidden');
+  var box = document.getElementById('ai-box');
+  if (box.children.length === 0) {
+    box.innerHTML = '<div class="ai-msg bot">أهلاً ' + escapeHtml(me.name) + '! أنا <b>مصطفى</b> 🤖<br><br>اسألني أي شي 😊</div>';
+  }
+  setTimeout(function(){ document.getElementById('ai-input').focus(); }, 100);
+}
+
+function sendAI() {
+  var input = document.getElementById('ai-input');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  var box = document.getElementById('ai-box');
+  box.innerHTML += '<div class="ai-msg user">' + escapeHtml(text) + '</div>';
+  box.innerHTML += '<div class="ai-msg bot" id="ai-typing">... يكتب</div>';
+  box.scrollTop = box.scrollHeight;
+  addPoints(2);
+  setTimeout(function() {
+    var t = document.getElementById('ai-typing');
+    if (t) t.remove();
+    var response = getAIResponse(text);
+    box.innerHTML += '<div class="ai-msg bot">' + escapeHtml(response).replace(/\n/g, '<br>') + '</div>';
+    box.scrollTop = box.scrollHeight;
+    playSound();
+  }, 600 + Math.random() * 400);
+}
+
+function getAIResponse(text) {
+  var t = text.toLowerCase().trim();
+  var now = new Date();
+  if (t.match(/^(مرحبا|مرحب|اهلا|أهلا|هلا|hi|hello|hey|السلام عليكم|سلام|صباح الخير|مساء الخير|هاي|هالو)/)) return 'أهلاً وسهلاً! أنا مصطفى 😊 كيف أساعدك؟';
+  if (t.match(/كيفك|كيف حالك|كيف الحال|شلونك|شو أخبارك|كيف الصحة/)) return 'أنا بخير الحمدلله! وأنت؟ 😊';
+  if (t.match(/شو اسمك|اسمك شو|من انت|منو انت|مين انت|عرفني عليك/)) return 'اسمي مصطفى 🤖، مساعدك الذكي.';
+  if (t.match(/كم عمرك|عمرك كم|شو عمرك/)) return 'أنا برنامج، ما عندي عمر 😄';
+  if (t.match(/نكتة|نكت|ضحكني|اضحكني|ضحك|فرفشني/)) {
+    var jokes = [
+      'ليش السمك ما بيلعب كرة؟ لأنه بيخاف من الشبكة! 🐟⚽',
+      'ليش القمر ما بيتزوج؟ لأنه ما لقى وحدة تناسبه! 🌙',
+      'واحد راح للدكتور قاله "شو مالك؟" قاله "ما بدي شي بس بدي أشوفك"! 😂',
+      'ليش الطالب ما بحب الرياضيات؟ لأنه ما لقى X! 📐',
+      'مرة واحد صيني أكل سوشي، صار ياباني! 🍣😂'
+    ];
+    return jokes[Math.floor(Math.random()*jokes.length)];
+  }
+  if (t.match(/كم الساعة|الساعة كم|شو الوقت|الوقت|الساعة الآن/)) return 'الساعة الآن: ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) + ' ⏰';
+  if (t.match(/شو التاريخ|التاريخ اليوم|تاريخ اليوم|اليوم كم|شو اليوم/)) return 'اليوم: ' + now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' 📅';
+  if (t.match(/شكرا|شكراً|مشكور|تسلم|يعطيك العافية/)) return 'العفو 💜';
+  if (t.match(/باي|وداع|مع السلامة|يلا باي/)) return 'مع السلامة! 👋';
+  if (t.match(/بحبك|حب|love|عشق|حبيبي/)) return 'أنا كمان بحبك 💜';
+  if (t.match(/غبي|حمار|حقير|زفت|كلب/)) return 'آسف إذا ضايقتك 💜';
+  var mathMatch = text.match(/(\d+)\s*([\+\-\*\/x×÷])\s*(\d+)/);
+  if (mathMatch) {
+    var a = parseInt(mathMatch[1]), op = mathMatch[2], b = parseInt(mathMatch[3]), res;
+    if (op === '+') res = a + b;
+    else if (op === '-') res = a - b;
+    else if (op === '*' || op === 'x' || op === '×') res = a * b;
+    else if (op === '/' || op === '÷') res = b !== 0 ? (a / b).toFixed(2) : 'خطأ!';
+    return 'الناتج: ' + res + ' 🧮';
+  }
+  if (t.match(/جذر|√/)) {
+    var n = text.match(/(\d+)/);
+    if (n) return 'الجذر التربيعي لـ ' + n[1] + ' = ' + Math.sqrt(parseInt(n[1])).toFixed(2) + ' 📐';
+  }
+  if (t.indexOf('عاصمة سوريا') > -1) return 'عاصمة سوريا هي: **دمشق** 🏛️';
+  if (t.indexOf('عاصمة مصر') > -1) return 'عاصمة مصر هي: **القاهرة** 🏛️';
+  if (t.indexOf('عاصمة السعودية') > -1) return 'عاصمة السعودية هي: **الرياض** 🏛️';
+  if (t.indexOf('عاصمة لبنان') > -1) return 'عاصمة لبنان هي: **بيروت** 🏛️';
+  if (t.indexOf('عاصمة فلسطين') > -1) return 'عاصمة فلسطين هي: **القدس** 🏛️';
+  if (t.indexOf('عاصمة الأردن') > -1) return 'عاصمة الأردن هي: **عمان** 🏛️';
+  if (t.indexOf('عاصمة العراق') > -1) return 'عاصمة العراق هي: **بغداد** 🏛️';
+  if (t.indexOf('عاصمة فرنسا') > -1) return 'عاصمة فرنسا هي: **باريس** 🗼';
+  if (t.match(/نصيحة|نصائح|بنصحني|شو تنصحني|عطيني نصيحة/)) {
+    var adv = ['نام منيح، اشرب مي، وابتسم 😊','لا تؤجل شغلك لبكرا 💪','اقرأ كل يوم شوي 📚','رياض شوي 🏃','كون لطيف مع الناس 💜'];
+    return adv[Math.floor(Math.random()*adv.length)];
+  }
+  if (t.match(/زعلان|حزين|تعبان|ضايق|مكتئب/)) return 'لا تزعل 💜 بكرا أحلى';
+  if (t.match(/مبسوط|فرحان|سعيد/)) return 'يسعدني هالشي! 🎉';
+  if (t.endsWith('؟') || t.endsWith('?')) return 'سؤال حلو! 🤔';
+  return 'حلو! 😄';
+}
+
+function openGames() { document.getElementById('games-modal').classList.remove('hidden'); }
+
+function chooseGame(game) {
+  selectedGame = game;
+  closeModals();
+  if (game === 'roulette' || game === 'quiz' || game === 'memory' || game === 'hidden') {
+    gameMode = 'single';
+    startGame();
+    return;
+  }
+  document.getElementById('mode-modal').classList.remove('hidden');
+}
+
+function chooseMode(mode) {
+  gameMode = mode;
+  closeModals();
+  startGame();
+}
+
+function startGame() {
+  if (selectedGame === 'xo') playXO();
+  else if (selectedGame === 'rps') playRPS();
+  else if (selectedGame === 'guess') playGuess();
+  else if (selectedGame === 'roulette') playRoulette();
+  else if (selectedGame === 'quiz') playQuiz();
+  else if (selectedGame === 'word') playWord();
+  else if (selectedGame === 'memory') playMemory();
+  else if (selectedGame === 'riddle') playRiddle();
+  else if (selectedGame === 'hidden') playHidden();
+}
+
+// X-O
+var xoBoard = ['','','','','','','','',''];
+var xoTurn = true, xoActive = false;
+function playXO() {
+  document.getElementById('xo-modal').classList.remove('hidden');
+  xoBoard = ['','','','','','','','',''];
+  xoTurn = true; xoActive = true;
+  document.getElementById('xo-players').textContent = 'أنت ضد AI';
+  document.getElementById('xo-status').textContent = 'دورك!';
+  drawXO();
+}
+function drawXO() {
+  var board = document.getElementById('xo-board');
+  board.innerHTML = '';
+  for (var i = 0; i < 9; i++) {
+    var cell = document.createElement('div');
+    cell.className = 'xo-cell';
+    if (xoBoard[i]==='X') { cell.classList.add('x'); cell.textContent = '❌'; }
+    else if (xoBoard[i]==='O') { cell.classList.add('o'); cell.textContent = '⭕'; }
+    (function(idx){ cell.onclick = function(){ makeXOMove(idx); }; })(i);
+    board.appendChild(cell);
+  }
+}
+function makeXOMove(i) {
+  if (!xoActive || xoBoard[i]) return;
+  xoBoard[i] = xoTurn ? 'X' : 'O';
+  drawXO();
+  var w = checkXOWinner();
+  if (w) return finishXO(w);
+  if (xoBoard.indexOf('') === -1) return finishXO('draw');
+  xoTurn = false;
+  document.getElementById('xo-status').textContent = '🤔 AI...';
+  setTimeout(function() {
+    var empty = [];
+    for (var k = 0; k < 9; k++) if (!xoBoard[k]) empty.push(k);
+    if (empty.length === 0) return;
+    xoBoard[empty[Math.floor(Math.random()*empty.length)]] = 'O';
+    drawXO();
+    var w2 = checkXOWinner();
+    if (w2) return finishXO(w2);
+    if (xoBoard.indexOf('') === -1) return finishXO('draw');
+    xoTurn = true;
+    document.getElementById('xo-status').textContent = 'دورك!';
+  }, 500);
+}
+function checkXOWinner() {
+  var wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (var i = 0; i < wins.length; i++) {
+    var w = wins[i];
+    if (xoBoard[w[0]] && xoBoard[w[0]] === xoBoard[w[1]] && xoBoard[w[0]] === xoBoard[w[2]]) return xoBoard[w[0]];
+  }
+  return null;
+}
+function finishXO(r) {
+  xoActive = false;
+  var st = document.getElementById('xo-status');
+  if (r === 'draw') { st.textContent = '🤝 تعادل!'; st.style.color = '#ffaa00'; }
+  else if (r === 'X') { st.textContent = '🎉 فزت! +50'; st.style.color = '#00ff88'; addPoints(50); }
+  else { st.textContent = '😢 AI فاز'; st.style.color = '#ff4444'; }
+}
+
+var rpsP1 = null;
+function playRPS() {
+  document.getElementById('rps-modal').classList.remove('hidden');
+  rpsP1 = null;
+  document.getElementById('rps-display').textContent = '❔';
+  document.getElementById('rps-status').textContent = 'اختر!';
+  document.getElementById('rps-players').textContent = 'أنت ضد AI';
+}
+function rpsChoice(p) {
+  var choices = ['rock','paper','scissors'];
+  var bot = choices[Math.floor(Math.random()*3)];
+  showRPS(p, bot, 'أنت', 'AI');
+}
+function showRPS(p1, p2, n1, n2) {
+  var em = { rock:'✊', paper:'✋', scissors:'✌️' };
+  var disp = document.getElementById('rps-display');
+  var st = document.getElementById('rps-status');
+  var c = 0;
+  var int = setInterval(function() {
+    disp.textContent = ['✊','✋','✌️'][c % 3];
+    c++;
+    if (c > 6) {
+      clearInterval(int);
+      disp.textContent = em[p1] + ' ' + em[p2];
+      if (p1 === p2) { st.textContent = '🤝 تعادل'; st.style.color = '#ffaa00'; }
+      else if ((p1==='rock'&&p2==='scissors')||(p1==='paper'&&p2==='rock')||(p1==='scissors'&&p2==='paper')) {
+        st.textContent = '🎉 فزت! +50'; st.style.color = '#00ff88'; addPoints(50);
+      } else {
+        st.textContent = '😢 خسرت'; st.style.color = '#ff4444';
+      }
+    }
+  }, 100);
+}
+
+var guessNum = 0, guessTries = 0;
+function playGuess() {
+  document.getElementById('guess-modal').classList.remove('hidden');
+  guessNum = Math.floor(Math.random()*100) + 1;
+  guessTries = 0;
+  document.getElementById('guess-display').textContent = '❔';
+  document.getElementById('guess-status').textContent = 'اكتب تخمينك';
+  document.getElementById('guess-input').value = '';
+  document.getElementById('guess-players').textContent = 'من 1 لـ 100';
+}
+function makeGuess() {
+  var n = parseInt(document.getElementById('guess-input').value);
+  if (!n || n < 1 || n > 100) return;
+  guessTries++;
+  document.getElementById('guess-input').value = '';
+  var disp = document.getElementById('guess-display');
+  var st = document.getElementById('guess-status');
+  if (n === guessNum) {
+    disp.textContent = '🎉';
+    var pts = Math.max(10, 100 - guessTries * 10);
+    st.textContent = 'فزت! الرقم ' + guessNum + ' • +' + pts;
+    st.style.color = '#00ff88';
+    addPoints(pts);
+  } else if (n < guessNum) {
+    disp.textContent = '⬆️'; st.textContent = 'أكبر ↑ (' + guessTries + ')'; st.style.color = '#ffaa00';
+  } else {
+    disp.textContent = '⬇️'; st.textContent = 'أصغر ↓ (' + guessTries + ')'; st.style.color = '#ffaa00';
+  }
+}
+
+var rouletteInterval = null;
+function playRoulette() {
+  document.getElementById('roulette-modal').classList.remove('hidden');
+  document.getElementById('roulette-display').textContent = '🎡';
+  document.getElementById('roulette-status').textContent = 'اكتب اسم في كل سطر';
+}
+function runRoulette() {
+  var namesText = document.getElementById('roulette-names').value.trim();
+  var names = namesText.split('\n').map(function(n){return n.trim();}).filter(function(n){return n;});
+  if (names.length < 2) return toast('اكتب اسمين على الأقل', 'error');
+  var disp = document.getElementById('roulette-display');
+  var st = document.getElementById('roulette-status');
+  var c = 0;
+  if (rouletteInterval) clearInterval(rouletteInterval);
+  st.textContent = '🎡 جاري السحب...';
+  st.style.color = '#ff00ff';
+  rouletteInterval = setInterval(function() {
+    disp.textContent = names[Math.floor(Math.random()*names.length)];
+    c++;
+    if (c > 20) {
+      clearInterval(rouletteInterval);
+      var winner = names[Math.floor(Math.random()*names.length)];
+      disp.textContent = '🎉 ' + winner;
+      st.textContent = 'الفائز: ' + winner;
+      st.style.color = '#00ff88';
+      addPoints(20);
+      toast('🎉 الفائز: ' + winner, 'success');
+      playSound();
+    }
+  }, 100);
+}
+
+var QUIZ_QUESTIONS = [
+  { q:'ما هي عاصمة سوريا؟', a:['دمشق','حلب','حمص','اللاذقية'] },
+  { q:'كم عدد أيام السنة الميلادية؟', a:['365','360','370','350'] },
+  { q:'ما هو أكبر كوكب في المجموعة الشمسية؟', a:['المشتري','الأرض','المريخ','زحل'] },
+  { q:'من اخترع المصباح؟', a:['إديسون','نيوتن','أينشتاين','فاراداي'] },
+  { q:'ما هي أكبر دولة عربية مساحة؟', a:['الجزائر','السعودية','السودان','ليبيا'] },
+  { q:'كم عدد ألوان قوس قزح؟', a:['7','6','5','8'] },
+  { q:'ما هي أطول سورة في القرآن؟', a:['البقرة','آل عمران','النساء','المائدة'] },
+  { q:'ما هو أسرع حيوان بري؟', a:['الفهد','الأسد','النمر','الحصان'] },
+  { q:'ما هي عملة اليابان؟', a:['الين','اليوان','الدولار','اليورو'] },
+  { q:'كم عدد قارات العالم؟', a:['7','6','5','8'] },
+  { q:'من هو مخترع الهاتف؟', a:['جراهام بيل','أديسون','تسلا','ماركوني'] },
+  { q:'ما هو أكبر محيط في العالم؟', a:['الهادي','الأطلسي','الهندي','المتجمد'] },
+  { q:'كم عدد أرجل العنكبوت؟', a:['8','6','10','4'] },
+  { q:'ما هي عاصمة فرنسا؟', a:['باريس','ليون','مرسيليا','نيس'] },
+  { q:'من رسم الموناليزا؟', a:['دافنشي','بيكاسو','فان جوخ','مايكل أنجلو'] },
+  { q:'ما هي عاصمة اليابان؟', a:['طوكيو','أوساكا','كيوتو','ناغويا'] },
+  { q:'كم عدد ألوان علم فلسطين؟', a:['4','3','5','2'] },
+  { q:'ما هو أطول نهر في العالم؟', a:['النيل','الأمازون','المسيسيبي','اليانغتسي'] },
+  { q:'ما هي عاصمة إيطاليا؟', a:['روما','ميلانو','نابولي','تورينو'] },
+  { q:'كم عدد الحروف الأبجدية العربية؟', a:['28','26','30','24'] },
+  { q:'ما هو الطائر الذي لا يطير؟', a:['البطريق','الصقر','النسر','الحمامة'] },
+  { q:'ما هي عاصمة ألمانيا؟', a:['برلين','ميونخ','هامبورغ','فرانكفورت'] },
+  { q:'كم عدد الأشهر الهجرية؟', a:['12','10','11','13'] },
+  { q:'ما هي عملة بريطانيا؟', a:['الجنيه الإسترليني','اليورو','الدولار','الفرنك'] },
+  { q:'من فاز بكأس العالم 2022؟', a:['الأرجنتين','فرنسا','البرازيل','ألمانيا'] },
+  { q:'ما هو أكبر حيوان في العالم؟', a:['الحوت الأزرق','الفيل','الزرافة','القرش'] },
+  { q:'ما هي عاصمة إسبانيا؟', a:['مدريد','برشلونة','فالنسيا','إشبيلية'] },
+  { q:'كم عدد أيام شهر شباط في السنة الكبيسة؟', a:['29','28','30','31'] },
+  { q:'ما هو الرمز الكيميائي للماء؟', a:['H2O','CO2','O2','NaCl'] },
+  { q:'من هو أول رئيس أمريكي؟', a:['جورج واشنطن','لينكولن','جيفرسون','روزفلت'] }
+];
+
+var quizCurrent = 0, quizScore = 0, quizStage = 1, quizCorrectInStage = 0;
+var quizStageQuestions = [];
+
+function playQuiz() {
+  document.getElementById('quiz-modal').classList.remove('hidden');
+  quizStage = 1;
+  startQuizStage();
+}
+
+function startQuizStage() {
+  quizCurrent = 0;
+  quizCorrectInStage = 0;
+  quizStageQuestions = [];
+  var pool = QUIZ_QUESTIONS.slice();
+  shuffleArray(pool);
+  for (var i = 0; i < 10 && i < pool.length; i++) {
+    var q = pool[i % pool.length];
+    var correctAnswer = q.a[0];
+    var opts = q.a.slice();
+    shuffleArray(opts);
+    var correctIndex = opts.indexOf(correctAnswer);
+    quizStageQuestions.push({ q: q.q, a: opts, c: correctIndex });
+  }
+  showQuizQuestion();
+}
+
+function showQuizQuestion() {
+  if (quizCurrent >= 10) {
+    if (quizCorrectInStage >= 5) {
+      if (quizStage >= 20) {
+        document.getElementById('quiz-question').innerHTML = '<div style="text-align:center;font-size:60px;margin:20px 0;">🏆</div><p style="text-align:center;font-size:22px;color:#00ffff;margin:15px 0;">أنهيت كل المراحل!</p>';
+        document.getElementById('quiz-options').innerHTML = '<button onclick="closeModals()" style="background:linear-gradient(90deg,#ff00ff,#00ffff);color:#000;">إغلاق</button>';
+        document.getElementById('quiz-score').textContent = '🏆 فزت باللعبة!';
+        addPoints(500);
+      } else {
+        var nextStage = quizStage + 1;
+        document.getElementById('quiz-question').innerHTML = '<div style="text-align:center;font-size:60px;margin:20px 0;">🎉</div><p style="text-align:center;font-size:20px;color:#00ff88;margin:15px 0;">نجحت في المرحلة ' + quizStage + '!</p><p style="text-align:center;color:#889;font-size:14px;">النتيجة: ' + quizCorrectInStage + ' / 10</p>';
+        document.getElementById('quiz-options').innerHTML = '<button onclick="quizStage=' + nextStage + ';startQuizStage()" style="background:linear-gradient(90deg,#ff00ff,#00ffff);color:#000;padding:12px;border-radius:10px;font-weight:bold;">➡️ المرحلة التالية</button><button onclick="closeModals()" style="background:#1a1a35;color:#ff0044;padding:12px;border-radius:10px;font-weight:bold;">خروج</button>';
+        document.getElementById('quiz-score').textContent = '🎉 نجحت!';
+        addPoints(50 * quizStage);
+      }
+    } else {
+      document.getElementById('quiz-question').innerHTML = '<div style="text-align:center;font-size:60px;margin:20px 0;">😢</div><p style="text-align:center;font-size:20px;color:#ff4444;margin:15px 0;">فشلت في المرحلة ' + quizStage + '</p><p style="text-align:center;color:#889;font-size:14px;">النتيجة: ' + quizCorrectInStage + ' / 10</p>';
+      document.getElementById('quiz-options').innerHTML = '<button onclick="startQuizStage()" style="background:linear-gradient(90deg,#ff00ff,#00ffff);color:#000;padding:12px;border-radius:10px;font-weight:bold;">🔄 حاول مرة ثانية</button><button onclick="closeModals()" style="background:#1a1a35;color:#ff0044;padding:12px;border-radius:10px;font-weight:bold;">خروج</button>';
+      document.getElementById('quiz-score').textContent = '😢 فشلت';
+    }
+    return;
+  }
+  var q = quizStageQuestions[quizCurrent];
+  document.getElementById('quiz-score').textContent = 'المرحلة ' + quizStage + '/20 • السؤال ' + (quizCurrent+1) + '/10 • صح: ' + quizCorrectInStage;
+  document.getElementById('quiz-question').textContent = q.q;
+  var optsHtml = '';
+  q.a.forEach(function(opt, i) {
+    optsHtml += '<button onclick="answerQuiz(' + i + ')">' + opt + '</button>';
+  });
+  document.getElementById('quiz-options').innerHTML = optsHtml;
+}
+
+function answerQuiz(i) {
+  var q = quizStageQuestions[quizCurrent];
+  var btns = document.querySelectorAll('#quiz-options button');
+  if (i === q.c) {
+    btns[i].classList.add('correct');
+    quizCorrectInStage++;
+    toast('✅ صحيح!', 'success');
+  } else {
+    btns[i].classList.add('wrong');
+    btns[q.c].classList.add('correct');
+    toast('❌ غلط!', 'error');
+  }
+  btns.forEach(function(b){ b.disabled = true; });
+  quizCurrent++;
+  setTimeout(showQuizQuestion, 1200);
+}
+
+function shuffleArray(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+}
+
+var WORD_LIST = [
+  { word:'تفاحة', hint:'🍎 فاكهة' },
+  { word:'مدرسة', hint:'🏫 مكان تعليمي' },
+  { word:'كمبيوتر', hint:'💻 جهاز إلكتروني' },
+  { word:'شمس', hint:'☀️ نجم' },
+  { word:'قمر', hint:'🌙 تابع للأرض' },
+  { word:'بحر', hint:'🌊 مسطح مائي' },
+  { word:'جبل', hint:'⛰️ مرتفع طبيعي' },
+  { word:'قطة', hint:'🐱 حيوان أليف' },
+  { word:'كتاب', hint:'📚 للمطالعة' },
+  { word:'هاتف', hint:'📱 للتواصل' },
+  { word:'قلم', hint:'✏️ للكتابة' },
+  { word:'بيت', hint:'🏠 للسكن' },
+  { word:'شجرة', hint:'🌳 نبات كبير' },
+  { word:'مفتاح', hint:'🔑 لفتح الأبواب' },
+  { word:'وردة', hint:'🌹 زهرة' }
+];
+
+var wordCurrent = null, wordShown = '', wordTries = 0;
+function playWord() {
+  document.getElementById('word-modal').classList.remove('hidden');
+  wordCurrent = WORD_LIST[Math.floor(Math.random()*WORD_LIST.length)];
+  wordShown = '';
+  for (var i = 0; i < wordCurrent.word.length; i++) wordShown += (i === 0 ? wordCurrent.word[i] : '_');
+  wordTries = 0;
+  document.getElementById('word-hint').textContent = 'التلميح: ' + wordCurrent.hint;
+  document.getElementById('word-display').textContent = wordShown;
+  document.getElementById('word-tries').textContent = 'المحاولات: 0 / 6';
+  document.getElementById('word-guess').value = '';
+}
+
+function checkWord() {
+  var input = document.getElementById('word-guess').value.trim();
+  if (!input) return;
+  if (input === wordCurrent.word) {
+    wordShown = wordCurrent.word;
+    document.getElementById('word-display').textContent = wordShown;
+    document.getElementById('word-tries').textContent = '🎉 فزت! +100 نقطة';
+    addPoints(100);
+    toast('🎉 فزت!', 'success');
+    return;
+  }
+  if (input.length === 1) {
+    var found = false;
+    var newShown = '';
+    for (var i = 0; i < wordCurrent.word.length; i++) {
+      if (wordShown[i] !== '_') newShown += wordShown[i];
+      else if (wordCurrent.word[i] === input) { newShown += input; found = true; }
+      else newShown += '_';
+    }
+    if (found) {
+      wordShown = newShown;
+      document.getElementById('word-display').textContent = wordShown;
+      if (wordShown === wordCurrent.word) {
+        document.getElementById('word-tries').textContent = '🎉 فزت! +100 نقطة';
+        addPoints(100);
+        toast('🎉 فزت!', 'success');
+      } else {
+        toast('✅ الحرف موجود', 'success');
+      }
+    } else {
+      wordTries++;
+      document.getElementById('word-tries').textContent = 'المحاولات: ' + wordTries + ' / 6';
+      toast('❌ الحرف غلط', 'error');
+      if (wordTries >= 6) document.getElementById('word-tries').textContent = '😢 خسرت! الكلمة: ' + wordCurrent.word;
+    }
+  } else {
+    wordTries++;
+    document.getElementById('word-tries').textContent = 'المحاولات: ' + wordTries + ' / 6';
+    toast('❌ غلط', 'error');
+    if (wordTries >= 6) document.getElementById('word-tries').textContent = '😢 خسرت! الكلمة: ' + wordCurrent.word;
+  }
+  document.getElementById('word-guess').value = '';
+}
+
+var MEMORY_EMOJIS = ['🍎','🍌','🍇','🍓','🍒','🍑','🍊','🥝'];
+var memoryBoard = [], memoryFlipped = [], memoryMatched = 0, memoryMoves = 0;
+function playMemory() {
+  document.getElementById('memory-modal').classList.remove('hidden');
+  var cards = MEMORY_EMOJIS.concat(MEMORY_EMOJIS);
+  shuffleArray(cards);
+  memoryBoard = cards;
+  memoryFlipped = [];
+  memoryMatched = 0;
+  memoryMoves = 0;
+  document.getElementById('memory-info').textContent = 'الأزواج: 0 / 8 • المحاولات: 0';
+  drawMemory();
+}
+function drawMemory() {
+  var board = document.getElementById('memory-board');
+  board.innerHTML = '';
+  for (var i = 0; i < 16; i++) {
+    var card = document.createElement('div');
+    card.className = 'memory-card';
+    var isFlipped = memoryFlipped.indexOf(i) > -1;
+    var isMatched = memoryBoard[i] === '✅';
+    if (isMatched) { card.classList.add('matched'); card.textContent = memoryBoard[i]; }
+    else if (isFlipped) { card.classList.add('flipped'); card.textContent = memoryBoard[i]; }
+    else { card.textContent = '❓'; }
+    (function(idx){ card.onclick = function(){ flipMemory(idx); }; })(i);
+    board.appendChild(card);
+  }
+}
+function flipMemory(i) {
+  if (memoryFlipped.indexOf(i) > -1) return;
+  if (memoryBoard[i] === '✅') return;
+  if (memoryFlipped.length >= 2) return;
+  memoryFlipped.push(i);
+  drawMemory();
+  if (memoryFlipped.length === 2) {
+    memoryMoves++;
+    document.getElementById('memory-info').textContent = 'الأزواج: ' + memoryMatched + ' / 8 • المحاولات: ' + memoryMoves;
+    setTimeout(function() {
+      if (memoryBoard[memoryFlipped[0]] === memoryBoard[memoryFlipped[1]]) {
+        memoryBoard[memoryFlipped[0]] = '✅';
+        memoryBoard[memoryFlipped[1]] = '✅';
+        memoryMatched++;
+        memoryFlipped = [];
+        drawMemory();
+        document.getElementById('memory-info').textContent = 'الأزواج: ' + memoryMatched + ' / 8 • المحاولات: ' + memoryMoves;
+        if (memoryMatched === 8) {
+          var pts = Math.max(30, 200 - memoryMoves * 5);
+          addPoints(pts);
+          toast('🎉 فزت بـ ' + memoryMoves + ' محاولة! +' + pts, 'success');
+          document.getElementById('memory-info').textContent = '🎉 فزت! +' + pts + ' نقطة';
+        }
+      } else {
+        memoryFlipped = [];
+        drawMemory();
+      }
+    }, 800);
+  }
+}
+
+var RIDDLES = [
+  { q:'شيء يمشي بلا أرجل، ويدخل بلا إذن؟', a:'الماء' },
+  { q:'شيء كلما أخذت منه كبر؟', a:'الحفرة' },
+  { q:'شيء له أسنان بس ما يعض؟', a:'المشط' },
+  { q:'شيء طائر بلا جناح؟', a:'الوقت' },
+  { q:'شيء كلما زاد نقص؟', a:'العمر' },
+  { q:'شيء يسمع بلا أذن؟', a:'الهاتف' },
+  { q:'شيء يكتب بلا يد؟', a:'القلم' },
+  { q:'ما هو الشيء الذي كلما أكل زاد؟', a:'النار' },
+  { q:'شيء بيت الكل، وما بيسكن ببيت؟', a:'الظل' },
+  { q:'شيء يمر عبر الزجاج بلا كسره؟', a:'الضوء' },
+  { q:'شيء بيطير بلا جناح، وبيوقف بلا قدمين؟', a:'السحاب' }
+];
+var riddleCurrent = null;
+function playRiddle() {
+  document.getElementById('riddle-modal').classList.remove('hidden');
+  riddleCurrent = RIDDLES[Math.floor(Math.random()*RIDDLES.length)];
+  document.getElementById('riddle-question').textContent = riddleCurrent.q;
+  document.getElementById('riddle-answer').value = '';
+  document.getElementById('riddle-status').textContent = '';
+}
+function checkRiddle() {
+  var ans = document.getElementById('riddle-answer').value.trim();
+  if (!ans) return;
+  var st = document.getElementById('riddle-status');
+  if (ans === riddleCurrent.a || ans.replace(/ال/g,'') === riddleCurrent.a.replace(/ال/g,'')) {
+    st.textContent = '🎉 صح! +80 نقطة';
+    st.style.color = '#00ff88';
+    addPoints(80);
+    toast('🎉 صح!', 'success');
+    setTimeout(playRiddle, 1500);
+  } else {
+    st.textContent = '❌ غلط، حاول مرة ثانية';
+    st.style.color = '#ff4444';
+    document.getElementById('riddle-answer').value = '';
+  }
+}
+
+var HIDDEN_WORDS = ['شمس','قمر','بحر','جبل','نهر','زهر','شجر','سما'];
+var hiddenBoard = [], hiddenFound = [], hiddenSelected = [], hiddenWordsFound = [];
+function playHidden() {
+  document.getElementById('hidden-modal').classList.remove('hidden');
+  hiddenFound = [];
+  hiddenSelected = [];
+  hiddenWordsFound = [];
+  var size = 8;
+  hiddenBoard = [];
+  for (var i = 0; i < size; i++) {
+    hiddenBoard.push([]);
+    for (var j = 0; j < size; j++) hiddenBoard[i].push('');
+  }
+  var letters = 'أبجدرزسشصطعفقكلمنهوي';
+  for (var r = 0; r < size; r++) {
+    for (var c = 0; c < size; c++) {
+      if (!hiddenBoard[r][c]) hiddenBoard[r][c] = letters[Math.floor(Math.random()*letters.length)];
+    }
+  }
+  HIDDEN_WORDS.slice(0, 5).forEach(function(word) {
+    var placedOk = false;
+    var attempts = 0;
+    while (!placedOk && attempts < 50) {
+      attempts++;
+      var dir = Math.random() > 0.5 ? 'h' : 'v';
+      var r2 = Math.floor(Math.random()*size);
+      var c2 = Math.floor(Math.random()*size);
+      if (dir === 'h' && c2 + word.length <= size) {
+        for (var k = 0; k < word.length; k++) hiddenBoard[r2][c2+k] = word[k];
+        placedOk = true;
+      } else if (dir === 'v' && r2 + word.length <= size) {
+        for (var k2 = 0; k2 < word.length; k2++) hiddenBoard[r2+k2][c2] = word[k2];
+        placedOk = true;
+      }
+    }
+  });
+  document.getElementById('hidden-words').textContent = 'الكلمات: ' + HIDDEN_WORDS.slice(0, 5).join(' • ');
+  document.getElementById('hidden-status').textContent = '';
+  drawHidden();
+}
+function drawHidden() {
+  var board = document.getElementById('hidden-board');
+  board.innerHTML = '';
+  for (var r = 0; r < hiddenBoard.length; r++) {
+    for (var c = 0; c < hiddenBoard[r].length; c++) {
+      var cell = document.createElement('div');
+      cell.className = 'hidden-cell';
+      var isFound = hiddenFound.some(function(f){ return f.r === r && f.c === c; });
+      var isSel = hiddenSelected.some(function(f){ return f.r === r && f.c === c; });
+      if (isFound) cell.classList.add('found');
+      if (isSel) cell.classList.add('selected');
+      cell.textContent = hiddenBoard[r][c];
+      (function(rr, cc){ cell.onclick = function(){ selectHidden(rr, cc); }; })(r, c);
+      board.appendChild(cell);
+    }
+  }
+}
+function selectHidden(r, c) {
+  hiddenSelected.push({ r: r, c: c });
+  drawHidden();
+  if (hiddenSelected.length === 2) checkHiddenWord();
+}
+function checkHiddenWord() {
+  var p1 = hiddenSelected[0], p2 = hiddenSelected[1];
+  var word1 = '', word2 = '';
+  if (p1.r === p2.r) {
+    var start = Math.min(p1.c, p2.c), end = Math.max(p1.c, p2.c);
+    for (var i = start; i <= end; i++) word1 += hiddenBoard[p1.r][i];
+    for (var j = end; j >= start; j--) word2 += hiddenBoard[p1.r][j];
+  }
+  if (p1.c === p2.c) {
+    var s2 = Math.min(p1.r, p2.r), e2 = Math.max(p1.r, p2.r);
+    for (var k = s2; k <= e2; k++) word1 += hiddenBoard[k][p1.c];
+    for (var m = e2; m >= s2; m--) word2 += hiddenBoard[m][p1.c];
+  }
+  var foundWord = null;
+  if (HIDDEN_WORDS.indexOf(word1) > -1) foundWord = word1;
+  else if (HIDDEN_WORDS.indexOf(word2) > -1) foundWord = word2;
+  if (foundWord && hiddenWordsFound.indexOf(foundWord) === -1) {
+    hiddenWordsFound.push(foundWord);
+    for (var x = 0; x < hiddenBoard.length; x++) {
+      for (var y = 0; y < hiddenBoard[x].length; y++) {
+        if (hiddenSelected.some(function(s){ return s.r === x && s.c === y; })) hiddenFound.push({ r: x, c: y });
+      }
+    }
+    addPoints(30);
+    toast('✅ لقيت: ' + foundWord + '! +30', 'success');
+    document.getElementById('hidden-status').textContent = 'وجدت: ' + hiddenWordsFound.join(' • ');
+    if (hiddenWordsFound.length === 5) {
+      addPoints(200);
+      toast('🎉 فزت بكل الكلمات! +200', 'success');
+      document.getElementById('hidden-status').textContent = '🎉 فزت!';
+    }
+  } else {
+    toast('❌ مو كلمة', 'error');
+  }
+  hiddenSelected = [];
+  drawHidden();
+}
+
+// ============================================
+// 🔗 ربط كل الأزرار
+// ============================================
+function initApp() {
+  document.getElementById('btn-login').onclick = login;
+  document.getElementById('btn-register').onclick = register;
+  document.getElementById('btn-reset').onclick = resetAll;
+  var u = document.getElementById('in-username'), p = document.getElementById('in-password');
+  u.onkeypress = function(e){ if (e.key === 'Enter') p.focus(); };
+  p.onkeypress = function(e){ if (e.key === 'Enter') login(); };
+
+  document.getElementById('btn-refresh').onclick = refreshAll;
+  document.getElementById('btn-games').onclick = openGames;
+  document.getElementById('btn-ai').onclick = openAI;
+  document.getElementById('btn-dms').onclick = openDMs;
+  document.getElementById('btn-members').onclick = openMembers;
+  document.getElementById('btn-rooms').onclick = openRoomsModal;
+  document.getElementById('btn-bans').onclick = openBansList;
+  document.getElementById('btn-profile').onclick = openProfile;
+
+  document.getElementById('btn-send').onclick = sendMessage;
+  document.getElementById('btn-cancel-reply').onclick = cancelReply;
+  document.getElementById('btn-save-profile').onclick = saveProfile;
+  document.getElementById('btn-give-points').onclick = givePoints;
+  document.getElementById('btn-add-room').onclick = addRoom;
+  document.getElementById('ai-send').onclick = sendAI;
+  document.getElementById('dm-send').onclick = sendDM;
+
+  document.getElementById('msg-input').onkeypress = function(e){ if (e.key === 'Enter') sendMessage(); };
+  document.getElementById('ai-input').onkeypress = function(e){ if (e.key === 'Enter') sendAI(); };
+  document.getElementById('dm-input').onkeypress = function(e){ if (e.key === 'Enter') sendDM(); };
+  document.getElementById('members-search').oninput = searchMembers;
+
+  document.querySelectorAll('.close-modal').forEach(function(b){ b.onclick = closeModals; });
+  document.querySelectorAll('.game-btn').forEach(function(b){ b.onclick = function(){ chooseGame(this.getAttribute('data-game')); }; });
+  document.querySelectorAll('.mode-btn').forEach(function(b){ b.onclick = function(){ chooseMode(this.getAttribute('data-mode')); }; });
+  document.querySelectorAll('.rps-choices button').forEach(function(b){ b.onclick = function(){ rpsChoice(this.getAttribute('data-choice')); }; });
+
+  var guessBtn = document.getElementById('guess-btn');
+  if (guessBtn) guessBtn.onclick = makeGuess;
+  var guessInput = document.getElementById('guess-input');
+  if (guessInput) guessInput.onkeypress = function(e){ if (e.key === 'Enter') makeGuess(); };
+
+  var rouletteBtn = document.getElementById('roulette-btn');
+  if (rouletteBtn) rouletteBtn.onclick = runRoulette;
+
+  var wordBtn = document.getElementById('word-btn');
+  if (wordBtn) wordBtn.onclick = checkWord;
+  var wordInput = document.getElementById('word-guess');
+  if (wordInput) wordInput.onkeypress = function(e){ if (e.key === 'Enter') checkWord(); };
+
+  var riddleBtn = document.getElementById('riddle-btn');
+  if (riddleBtn) riddleBtn.onclick = checkRiddle;
+  var riddleInput = document.getElementById('riddle-answer');
+  if (riddleInput) riddleInput.onkeypress = function(e){ if (e.key === 'Enter') checkRiddle(); };
+
+  if (DB.c) {
+    var found = DB.u.find(function(x){return x.id===DB.c;});
+    if (found && !found.banned && !found.kicked) { me = found; startApp(); }
+    else DB.c = null;
+  }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
+else initApp();
+</script>
+</body>
+</html>
