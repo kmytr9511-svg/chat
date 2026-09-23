@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شات النيون v7</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Cairo', Arial, sans-serif; background: #0d0d20; color: #fff; min-height: 100vh; display: flex; justify-content: center; padding: 8px; overflow: hidden; }
+.hidden { display: none !important; }
+button { font-family: inherit; cursor: pointer; border: none; }
+
+#auth-screen { display: flex; align-items: center; justify-content: center; min-height: 96vh; width: 100%; }
+.auth-box { background: #12122a; padding: 30px 22px; border-radius: 20px; box-shadow: 0 0 40px #00ffff55; width: 100%; max-width: 380px; text-align: center; border: 1px solid #00ffff33; }
+.auth-box h1 { color: #00ffff; text-shadow: 0 0 20px #00ffff; margin-bottom: 20px; font-size: 24px; }
+.auth-box input { width: 100%; padding: 13px; margin: 7px 0; background: #0a0a1a; border: 2px solid #00ffff44; color: #fff; border-radius: 10px; font-size: 15px; font-family: inherit; }
+.auth-box input:focus { outline: none; border-color: #00ffff; }
+.auth-box button { width: 100%; padding: 13px; margin-top: 10px; background: linear-gradient(90deg, #ff00ff, #00ffff); color: #000; font-weight: bold; border-radius: 10px; font-size: 15px; }
+.auth-box button.sec { background: #1a1a35; color: #00ffff; }
+.auth-box button.danger { background: #ff004422; color: #ff6688; border: 1px solid #ff004466; font-size: 13px; padding: 9px; }
+#auth-msg { margin-top: 12px; font-size: 13px; min-height: 20px; }
+.hint { color: #556; font-size: 11px; margin-top: 12px; }
+.hint b { color: #ff0044; }
+
+#main-app { width: 100%; max-width: 800px; height: 97vh; display: flex; flex-direction: column; background: #0d0d20; border-radius: 18px; box-shadow: 0 0 40px #00ffff44; overflow: hidden; border: 1px solid #00ffff33; }
+
+header { padding: 8px 12px; background: linear-gradient(90deg, #12122a, #1a1a3a); border-bottom: 2px solid #00ffff44; display: flex; justify-content: space-between; align-items: center; }
+.me-info { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.me-info img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #00ffff; background: #1a1a35; }
+.me-info b { color: #00ffff; font-size: 13px; display: block; }
+.me-info span { font-size: 10px; color: #888; }
+.header-right button { padding: 6px 10px; background: #1a1a35; border: 1px solid #00ffff55; color: #00ffff; border-radius: 10px; font-size: 14px; margin-left: 4px; }
+.header-right button.logout { background: #ff004422; color: #ff6688; border-color: #ff004466; }
+
+.toolbar { display: flex; gap: 4px; padding: 6px 8px; background: #12122a; border-bottom: 2px solid #00ffff44; overflow-x: auto; }
+.toolbar::-webkit-scrollbar { height: 0; }
+.toolbar button { flex: 0 0 auto; min-width: 55px; padding: 8px 6px; background: #1a1a35; border: 1px solid #00ffff55; color: #00ffff; border-radius: 10px; font-size: 13px; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.toolbar button span { font-size: 9px; color: #889; }
+
+.room-tabs { display: flex; gap: 5px; padding: 6px 10px; background: #0a0a1a; border-bottom: 1px solid #00ffff33; overflow-x: auto; }
+.room-tabs::-webkit-scrollbar { height: 0; }
+.room-tab { padding: 6px 12px; background: #12122a; border: 1px solid #00ffff44; color: #00ffff; border-radius: 10px; font-size: 12px; white-space: nowrap; cursor: pointer; font-weight: 600; }
+.room-tab.active { background: linear-gradient(90deg, #ff00ff, #00ffff); color: #000; border: none; }
+
+#messages { flex: 1; overflow-y: auto; padding: 12px; background: #0d0d20; }
+#messages::-webkit-scrollbar { width: 5px; }
+#messages::-webkit-scrollbar-thumb { background: #00ffff55; border-radius: 3px; }
+.msg-row { display: flex; margin: 8px 0; }
+.msg-row.mine { justify-content: flex-start; }
+.msg-row.other { justify-content: flex-end; }
+.msg { display: flex; gap: 8px; max-width: 85%; padding: 8px 10px; background: #16162e; border-radius: 14px; }
+.msg-row.mine .msg { background: linear-gradient(135deg, #1e1e4a, #1a1a3a); border-left: 3px solid #00ffff; flex-direction: row-reverse; }
+.msg img.av { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #00ffff55; cursor: pointer; }
+.msg .body { flex: 1; min-width: 0; }
+.msg .name { font-weight: bold; font-size: 13px; color: #00ffff; cursor: pointer; }
+.msg .time { color: #555; font-size: 10px; margin-right: 6px; }
+.msg .text { margin-top: 4px; font-size: 14px; word-wrap: break-word; line-height: 1.5; }
+.msg .quote { margin-top: 4px; padding: 4px 8px; background: #0a0a1a; border-right: 3px solid #00ffff; border-radius: 6px; font-size: 11px; color: #889; }
+.msg-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.msg-row.mine .msg-actions { flex-direction: row-reverse; }
+.msg-actions button { font-size: 10px; padding: 3px 7px; border-radius: 6px; background: #1a1a35; color: #00ffff; border: 1px solid #00ffff44; }
+.reactions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.reaction-btn { padding: 3px 8px; font-size: 12px; border-radius: 12px; background: #1a1a35; border: 1px solid #00ffff44; cursor: pointer; }
+.reaction-btn.reacted { background: linear-gradient(90deg, #ff00ff, #00ffff); color: #000; border: none; font-weight: bold; }
+.system { text-align: center; color: #667; font-size: 11px; margin: 7px 0; font-style: italic; }
+.system.welcome { color: #00ff88; font-size: 13px; font-weight: bold; background: #00ff8822; padding: 8px; border-radius: 10px; margin: 10px 0; font-style: normal; }
+
+footer { padding: 9px 11px; background: #12122a; border-top: 2px solid #00ffff33; }
+#reply-bar { display: flex; justify-content: space-between; align-items: center; background: #0a0a1a; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 12px; border-right: 3px solid #ff00ff; }
+#reply-bar span { color: #aaa; }
+#reply-bar b { color: #00ffff; }
+#reply-bar button { background: none; border: none; color: #ff4444; font-size: 16px; }
+.input-row { display: flex; gap: 6px; }
+#msg-input { flex: 1; padding: 12px; background: #0a0a1a; border: 2px solid #00ffff44; color: #fff; border-radius: 12px; font-size: 14px; font-family: inherit; }
+#msg-input:focus { outline: none; border-color: #00ffff; }
+#btn-send { padding: 12px 20px; background: linear-gradient(90deg, #ff00ff, #00ffff); border-radius: 12px; color: #000; font-weight: bold; font-size: 14px; }
+
+.modal-bg { position: fixed; inset: 0; background: #000c; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 12px; }
+.modal { background: #12122a; border-radius: 18px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; padding: 18px; border: 1px solid #00ffff33; }
+.modal h2 { color: #00ffff; margin-bottom: 15px; text-align: center; font-size: 17px; }
+.modal label { display: block; color: #889; font-size: 12px; margin: 10px 0 4px; }
+.modal input, .modal textarea { width: 100%; padding: 10px; background: #0a0a1a; border: 2px solid #00ffff33; color: #fff; border-radius: 10px; font-size: 14px; font-family: inherit; margin-bottom: 6px; }
+.modal input:focus, .modal textarea:focus { outline: none; border-color: #00ffff; }
+.modal button.primary { width: 100%; padding: 12px; margin-top: 12px; background: linear-gradient(90deg, #ff00ff, #00ffff); border-radius: 10px; color: #000; font-weight: bold; font-size: 14px; }
+.modal .close-modal { width: 100%; padding: 10px; margin-top: 8px; background: #1a1a35; border: 1px solid #ff0044; color: #ff0044; border-radius: 10px; }
+
+.games-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.game-btn { padding: 12px 6px; background: #0a0a1a; border: 2px solid #00ffff33; border-radius: 12px; color: #00ffff; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.game-btn span { font-size: 26px; }
+.game-btn b { font-size: 11px; }
+
+.mode-grid { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.mode-btn { padding: 12px; background: #0a0a1a; border: 2px solid #00ffff33; border-radius: 12px; color: #fff; display: flex; align-items: center; gap: 10px; text-align: right; }
+.mode-btn span { font-size: 26px; }
+.mode-btn b { color: #00ffff; font-size: 14px; display: block; }
+.mode-btn small { color: #889; font-size: 11px; }
+
+.member-row, .dm-item, .opponent-item { padding: 10px; margin: 5px 0; background: #0a0a1a; border-radius: 10px; display: flex; align-items: center; gap: 9px; border: 1px solid #00ffff22; }
+.member-row img, .dm-item img, .opponent-item img { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 2px solid #00ffff55; }
+.member-row .info, .dm-item .info, .opponent-item .info { flex: 1; }
+.member-row b, .dm-item b, .opponent-item b { color: #00ffff; font-size: 13px; display: block; }
+.member-row small, .dm-item small, .opponent-item small { font-size: 11px; color: #667; }
+.member-row .tag { padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; }
+.member-row .tag.admin { background: #ff0044; color: #fff; }
+.member-row .tag.super { background: #ffaa00; color: #000; }
+.member-row .tag.mod { background: #00ffff; color: #000; }
+.member-row .tag.user { background: #667; color: #fff; }
+.member-row .tag.banned { background: #ff004455; color: #ff6688; }
+.member-row .tag.muted { background: #ffaa0055; color: #ffaa00; }
+
+.room-item { padding: 12px; margin: 6px 0; background: #0a0a1a; border: 2px solid #00ffff33; border-radius: 12px; display: flex; align-items: center; gap: 10px; }
+.room-item .em { font-size: 28px; }
+.room-item .name { flex: 1; color: #00ffff; font-weight: bold; font-size: 14px; }
+.room-item button.del { padding: 6px 12px; background: #ff0044; color: #fff; border-radius: 8px; font-weight: bold; font-size: 12px; }
+
+.big-emoji { font-size: 60px; text-align: center; margin: 15px 0; color: #00ffff; }
+.players-text { text-align: center; color: #ffaa00; font-size: 13px; margin-bottom: 8px; }
+.status-text { text-align: center; color: #00ffff; font-size: 14px; margin: 10px 0; }
+.xo-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 300px; margin: 15px auto; }
+.xo-cell { aspect-ratio: 1; background: #0a0a1a; border: 2px solid #00ffff44; border-radius: 10px; font-size: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
+.xo-cell.x { color: #00ffff; }
+.xo-cell.o { color: #ff00ff; }
+.rps-choices { display: flex; gap: 10px; justify-content: center; margin: 15px 0; }
+.rps-choices button { padding: 15px 20px; background: #0a0a1a; border: 2px solid #00ffff33; border-radius: 12px; font-size: 32px; }
+
+#ai-box { max-height: 300px; overflow-y: auto; background: #0a0a1a; padding: 10px; border-radius: 10px; margin-bottom: 10px; min-height: 150px; }
+.ai-msg { padding: 8px 10px; margin: 6px 0; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+.ai-msg.user { background: #1a1a3a; margin-left: 30px; text-align: left; }
+.ai-msg.bot { background: #0a0a1a; border: 1px solid #ff00ff44; margin-right: 30px; }
+.ai-input-row { display: flex; gap: 6px; margin-top: 10px; }
+.ai-input-row input { flex: 1; padding: 10px; background: #0a0a1a; border: 2px solid #00ffff33; color: #fff; border-radius: 10px; font-family: inherit; }
+.ai-input-row input:focus { outline: none; border-color: #00ffff; }
+.ai-input-row button { padding: 10px 16px; background: linear-gradient(90deg, #ff00ff, #00ffff); border-radius: 10px; font-weight: bold; color: #000; }
+
+#chat-box { max-height: 300px; overflow-y: auto; background: #0a0a1a; padding: 10px; border-radius: 10px; margin-bottom: 10px; min-height: 150px; }
+
+.menu-btn { padding: 11px; background: #0a0a1a; border: 1px solid #00ffff33; color: #00ffff; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.menu-btn.danger { color: #ff6688; border-color: #ff004455; }
+.menu-btn.admin-only { color: #ffaa00; border-color: #ffaa0055; }
+
+.btn-fix { padding: 6px 12px; background: #00ff88; color: #000; border-radius: 8px; font-weight: bold; }
+.gift-btn { padding: 20px; background: #0a0a1a; border: 2px solid #00ffff44; border-radius: 12px; font-size: 32px; cursor: pointer; }
+
+#quiz-options button { width: 100%; padding: 12px; margin: 5px 0; background: #0a0a1a; border: 2px solid #00ffff33; color: #fff; border-radius: 10px; text-align: right; cursor: pointer; font-size: 14px; }
+#quiz-options button:hover { border-color: #ff00ff; }
+#quiz-options button.correct { background: #00ff8833; border-color: #00ff88; color: #00ff88; }
+#quiz-options button.wrong { background: #ff004433; border-color: #ff0044; color: #ff6688; }
+
+.memory-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 340px; margin: 15px auto; }
+.memory-card { aspect-ratio: 1; background: #1a1a35; border: 2px solid #00ffff55; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 32px; cursor: pointer; }
+.memory-card.flipped { background: #0a0a1a; border-color: #00ffff; }
+.memory-card.matched { background: #00ff8822; border-color: #00ff88; cursor: default; }
+
+.hidden-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; max-width: 100%; margin: 10px auto; }
+.hidden-cell { aspect-ratio: 1; background: #0a0a1a; border: 1px solid #00ffff33; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: #00ffff; cursor: pointer; }
+.hidden-cell.found { background: #00ff8833; color: #00ff88; }
+.hidden-cell.selected { background: #ff00ff33; border-color: #ff00ff; }
+
+#toasts { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { background: #12122a; color: #fff; padding: 10px 18px; border-radius: 12px; border: 1px solid #00ffff55; font-size: 13px; font-weight: 600; max-width: 320px; }
+.toast.success { border-color: #00ff88; }
+.toast.error { border-color: #ff0044; }
+.toast.gift { background: linear-gradient(135deg, #ff00ff22, #00ffff22); font-size: 15px; }
+</style>
+</head>
+<body>
+  <div id="auth-screen">
+  <div class="auth-box">
+    <h1>💬 شات النيون v7</h1>
+    <input id="in-username" type="text" placeholder="اسم المستخدم" autocomplete="off">
+    <input id="in-password" type="password" placeholder="كلمة السر" autocomplete="off">
+    <button id="btn-login">🔓 دخول</button>
+    <button id="btn-register" class="sec">✨ حساب جديد</button>
+    <button id="btn-reset" class="danger">🗑️ مسح البيانات</button>
+    <p id="auth-msg"></p>
+    <p class="hint">💡 أنشئ حسابك وابدأ الدردشة</p>
+  </div>
+</div>
+
+<div id="main-app" class="hidden">
+  <header>
+    <div class="me-info" onclick="openProfile()">
+      <img id="my-avatar" src="">
+      <div>
+        <b id="my-name">-</b>
+        <span id="my-points">0 نقطة</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button onclick="logout()" class="logout">🚪</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button id="btn-refresh">🔄 <span>تحديث</span></button>
+    <button id="btn-games">🎮 <span>ألعاب</span></button>
+    <button id="btn-ai">🤖 <span>AI</span></button>
+    <button id="btn-dms">✉️ <span>الخاص</span></button>
+    <button id="btn-members">👥 <span>الأعضاء</span></button>
+    <button id="btn-rooms">🏠 <span>الغرف</span></button>
+    <button id="btn-bans">🚫 <span>الإدارة</span></button>
+    <button id="btn-profile">👤 <span>ملفي</span></button>
+  </div>
+
+  <div class="room-tabs" id="room-tabs"></div>
+  <div id="messages"></div>
+
+  <footer>
+    <div id="reply-bar" class="hidden">
+      <span>↩️ رد على <b id="reply-name"></b></span>
+      <button id="btn-cancel-reply">✕</button>
+    </div>
+    <div class="input-row">
+      <input id="msg-input" type="text" placeholder="اكتب رسالة..." maxlength="500">
+      <button id="btn-send">إرسال</button>
+    </div>
+  </footer>
+</div>
+
+<!-- الألعاب -->
+<div id="games-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>🎮 الألعاب</h2>
+    <div class="games-grid">
+      <button class="game-btn" data-game="xo"><span>❌⭕</span><b>X-O</b></button>
+      <button class="game-btn" data-game="rps"><span>✊✋✌️</span><b>حجرة ورقة</b></button>
+      <button class="game-btn" data-game="guess"><span>🎯</span><b>خمّن الرقم</b></button>
+      <button class="game-btn" data-game="roulette"><span>🎡</span><b>القرعة</b></button>
+      <button class="game-btn" data-game="quiz"><span>❓</span><b>أسئلة ثقافية</b></button>
+      <button class="game-btn" data-game="word"><span>🔤</span><b>تخمين كلمة</b></button>
+      <button class="game-btn" data-game="memory"><span>🧠</span><b>الذاكرة</b></button>
+      <button class="game-btn" data-game="riddle"><span>🤔</span><b>سين جيم</b></button>
+      <button class="game-btn" data-game="hidden"><span>📝</span><b>كلمة مخفية</b></button>
+    </div>
+    <button class="close-modal">إغلاق</button>
+  </div>
+</div>
+
+<div id="mode-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>اختر الوضع</h2>
+    <div class="mode-grid">
+      <button class="mode-btn" data-mode="ai"><span>🤖</span><div><b>ضد الكمبيوتر</b><small>العب فوراً</small></div></button>
+      <button class="mode-btn" data-mode="friend"><span>👥</span><div><b>بين شخصين</b><small>نفس الجهاز</small></div></button>
+      <button class="mode-btn" data-mode="challenge"><span>🌐</span><div><b>تحدي أونلاين</b><small>أرسل تحدّي</small></div></button>
+    </div>
+    <button class="close-modal">رجوع</button>
+  </div>
+</div>
+
+<div id="opponent-modal" class="modal-bg hidden"><div class="modal"><h2>🌐 اختر خصمك</h2><div id="opponent-list"></div><button class="close-modal">إلغاء</button></div></div>
+
+<div id="waiting-modal" class="modal-bg hidden"><div class="modal" style="text-align:center;"><h2>⏳ انتظار</h2><p id="waiting-text" class="status-text"></p><div class="big-emoji" id="waiting-countdown">30</div><button class="close-modal">إلغاء</button></div></div>
+
+<div id="ai-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>🤖 محادثة مع مصطفى</h2>
+    <div id="ai-box"></div>
+    <div class="ai-input-row"><input id="ai-input" type="text" placeholder="اسأل مصطفى..."><button id="ai-send">➤</button></div>
+    <button class="close-modal">إغلاق</button>
+  </div>
+</div>
+
+<div id="profile-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>👤 ملفي</h2>
+    <label>رابط الصورة</label><input id="p-avatar" type="text">
+    <label>الاسم</label><input id="p-name" type="text">
+    <label>نبذة</label><input id="p-bio" type="text">
+    <label>كلمة سر جديدة</label><input id="p-pass" type="password" placeholder="اتركها فاضية">
+    <button id="btn-save-profile" class="primary">💾 حفظ</button>
+    <button class="close-modal">إلغاء</button>
+  </div>
+</div>
+
+<div id="user-modal" class="modal-bg hidden"><div class="modal" id="user-modal-content"></div></div>
+
+<div id="members-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>👥 الأعضاء</h2>
+    <input id="members-search" type="text" placeholder="🔍 بحث...">
+    <div id="members-list"></div>
+    <button class="close-modal">إغلاق</button>
+  </div>
+</div>
+
+<div id="rooms-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>🏠 إدارة الغرف</h2>
+    <div id="rooms-list"></div>
+    <div style="background:#0a0a1a;padding:12px;border-radius:10px;margin-top:12px;">
+      <label style="color:#00ffff;">➕ إضافة غرفة</label>
+      <input id="new-room-em" type="text" placeholder="أيقونة" maxlength="2">
+      <input id="new-room-name" type="text" placeholder="اسم الغرفة">
+      <button id="btn-add-room" class="primary">➕ إضافة</button>
+    </div>
+    <button class="close-modal">إغلاق</button>
+  </div>
+</div>
+
+<div id="bans-modal" class="modal-bg hidden"><div class="modal"><h2>🚫 إدارة الأعضاء</h2><div id="bans-list"></div><button class="close-modal">إغلاق</button></div></div>
+
+<div id="dms-modal" class="modal-bg hidden"><div class="modal"><h2>✉️ الخاص</h2><div id="dms-list"></div><button class="close-modal">إغلاق</button></div></div>
+
+<div id="chat-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2 id="chat-title">✉️ محادثة</h2>
+    <div id="chat-box"></div>
+    <div class="ai-input-row"><input id="dm-input" type="text" placeholder="اكتب..."><button id="dm-send">➤</button></div>
+    <button class="close-modal">إغلاق</button>
+  </div>
+</div>
+
+<div id="points-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>💰 إهداء نقاط</h2>
+    <p id="points-target-name" class="status-text"></p>
+    <label>كم نقطة؟</label><input id="points-amount" type="number" min="1" value="50">
+    <button id="btn-give-points" class="primary">💸 إهداء</button>
+    <button class="close-modal">إلغاء</button>
+  </div>
+</div>
+
+<div id="gifts-modal" class="modal-bg hidden"><div class="modal" id="gifts-content"></div></div>
+
+<!-- نوافذ الألعاب -->
+<div id="xo-modal" class="modal-bg hidden"><div class="modal"><h2>❌⭕ X-O</h2><p id="xo-players" class="players-text"></p><p id="xo-status" class="status-text">دورك!</p><div id="xo-board" class="xo-board"></div><button class="close-modal">رجوع</button></div></div>
+
+<div id="rps-modal" class="modal-bg hidden"><div class="modal"><h2>✊✋✌️ حجرة ورقة مقص</h2><p id="rps-players" class="players-text"></p><div id="rps-display" class="big-emoji">❔</div><p id="rps-status" class="status-text">اختر!</p><div class="rps-choices"><button data-choice="rock">✊</button><button data-choice="paper">✋</button><button data-choice="scissors">✌️</button></div><button class="close-modal">رجوع</button></div></div>
+
+<div id="guess-modal" class="modal-bg hidden"><div class="modal"><h2>🎯 خمّن الرقم</h2><p id="guess-players" class="players-text"></p><div id="guess-display" class="big-emoji">❔</div><p id="guess-status" class="status-text">اكتب تخمينك</p><div class="ai-input-row"><input id="guess-input" type="number" min="1" max="100" placeholder="1-100"><button id="guess-btn">خمّن</button></div><button class="close-modal">رجوع</button></div></div>
+
+<div id="roulette-modal" class="modal-bg hidden"><div class="modal"><h2>🎡 القرعة</h2><div class="big-emoji" id="roulette-display">🎡</div><p class="status-text" id="roulette-status">أضف أسماء وابدأ</p><textarea id="roulette-names" rows="4" placeholder="اكتب اسم في كل سطر"></textarea><button id="roulette-btn" class="primary">🎡 اسحب قرعة</button><button class="close-modal">رجوع</button></div></div>
+
+<div id="quiz-modal" class="modal-bg hidden"><div class="modal"><h2>❓ الأسئلة الثقافية</h2><p class="status-text" id="quiz-score">السؤال 1 / 10</p><p id="quiz-question" style="font-size:16px;margin:15px 0;line-height:1.6;"></p><div id="quiz-options"></div><button class="close-modal">خروج</button></div></div>
+
+<div id="word-modal" class="modal-bg hidden"><div class="modal"><h2>🔤 تخمين الكلمة</h2><p class="status-text" id="word-hint"></p><div class="big-emoji" id="word-display"></div><p class="status-text" id="word-tries">المحاولات: 0 / 6</p><input id="word-guess" type="text" placeholder="اكتب حرف أو الكلمة" maxlength="15" style="text-align:center;font-size:18px;"><button id="word-btn" class="primary">جرب</button><button class="close-modal">خروج</button></div></div>
+
+<div id="memory-modal" class="modal-bg hidden"><div class="modal"><h2>🧠 تحدي الذاكرة</h2><p class="status-text" id="memory-info">الأزواج: 0 / 8 • المحاولات: 0</p><div id="memory-board" class="memory-board"></div><button class="close-modal">خروج</button></div></div>
+
+<div id="riddle-modal" class="modal-bg hidden"><div class="modal"><h2>🤔 سين جيم</h2><div class="big-emoji">🤔</div><p id="riddle-question" style="font-size:15px;margin:15px 0;line-height:1.7;"></p><input id="riddle-answer" type="text" placeholder="اكتب جوابك"><button id="riddle-btn" class="primary">✅ تحقق</button><p class="status-text" id="riddle-status"></p><button class="close-modal">خروج</button></div></div>
+
+<div id="hidden-modal" class="modal-bg hidden"><div class="modal"><h2>📝 الكلمة المخفية</h2><p class="status-text">جد الكلمات المخفية:</p><p id="hidden-words" style="color:#ff00ff;font-size:13px;text-align:center;margin:10px 0;"></p><div id="hidden-board" class="hidden-board"></div><p class="status-text" id="hidden-status"></p><button class="close-modal">خروج</button></div></div>
+
+<div id="toasts"></div>
+
+<script>
+  // ============================================
+// 📦 التخزين
+// ============================================
+var DB = {
+  get u() { try { return JSON.parse(localStorage.getItem('chat_users') || '[]'); } catch(e) { return []; } },
+  set u(v) { try { localStorage.setItem('chat_users', JSON.stringify(v)); } catch(e) {} },
+  get m() { try { return JSON.parse(localStorage.getItem('chat_messages') || '[]'); } catch(e) { return []; } },
+  set m(v) { try { localStorage.setItem('chat_messages', JSON.stringify(v)); } catch(e) {} },
+  get d() { try { return JSON.parse(localStorage.getItem('chat_dms') || '[]'); } catch(e) { return []; } },
+  set d(v) { try { localStorage.setItem('chat_dms', JSON.stringify(v)); } catch(e) {} },
+  get b() { try { return JSON.parse(localStorage.getItem('chat_bans') || '[]'); } catch(e) { return []; } },
+  set b(v) { try { localStorage.setItem('chat_bans', JSON.stringify(v)); } catch(e) {} },
+  get r() {
+    try {
+      var v = JSON.parse(localStorage.getItem('chat_rooms') || 'null');
+      if (v) return v;
+      return [
+        {id:'general', name:'عامة', em:'💬'},
+        {id:'games', name:'ألعاب', em:'🎮'},
+        {id:'sports', name:'رياضة', em:'⚽'},
+        {id:'tech', name:'تقنية', em:'💻'}
+      ];
+    } catch(e) { return []; }
+  },
+  set r(v) { try { localStorage.setItem('chat_rooms', JSON.stringify(v)); } catch(e) {} },
+  get l() { try { return JSON.parse(localStorage.getItem('chat_logs') || '[]'); } catch(e) { return []; } },
+  set l(v) { try { localStorage.setItem('chat_logs', JSON.stringify(v.slice(-200))); } catch(e) {} },
+  get c() { try { return JSON.parse(localStorage.getItem('chat_current') || 'null'); } catch(e) { return null; } },
+  set c(v) { try { if (v===null) localStorage.removeItem('chat_current'); else localStorage.setItem('chat_current', JSON.stringify(v)); } catch(e) {} }
+};
+
+var me = null, botTimer = null, selectedGame = null, gameMode = 'ai';
+var replyingTo = null, chattingWith = null, challengeTimer = null;
+var currentRoom = 'general';
+
+var ROLES = { 'user':{name:'👤 عضو',level:0}, 'mod':{name:'🛡️ مشرف',level:1}, 'super':{name:'⭐ سوبر',level:2}, 'admin':{name:'👑 المالك',level:3} };
+function getRoleLevel(r) { return ROLES[r] ? ROLES[r].level : 0; }
+function getRoleName(r) { return ROLES[r] ? ROLES[r].name : '👤 عضو'; }
+function canModerate() { return getRoleLevel(me.role) >= 1; }
+function canKick() { return getRoleLevel(me.role) >= 2; }
+function canBan() { return getRoleLevel(me.role) >= 2; }
+function canPromote() { return me.role === 'admin'; }
+
+function addLog(text) {
+  var logs = DB.l;
+  logs.push({ by: me ? me.name : 'النظام', text: text, time: Date.now() });
+  DB.l = logs;
+}
+
+// ============================================
+// 🔐 تسجيل / دخول
+// ============================================
+function register() {
+  var u = document.getElementById('in-username').value.trim();
+  var p = document.getElementById('in-password').value;
+  if (u.length < 3) return authMsg('⚠️ الاسم قصير', true);
+  if (p.length < 4) return authMsg('⚠️ كلمة السر قصيرة', true);
+  var users = DB.u;
+  if (users.find(function(x){return x.name===u;})) return authMsg('⚠️ الاسم مستخدم', true);
+  if (DB.b.find(function(b){return b.name===u;})) return authMsg('🚫 محظور', true);
+  var newUser = {
+    id:Date.now()+Math.floor(Math.random()*1000), name:u, password:p,
+    avatar:'https://api.dicebear.com/7.x/adventurer/svg?seed='+encodeURIComponent(u),
+    bio:'مرحباً! أنا جديد 👋', points:100, level:1,
+    role:u.toLowerCase()==='admin'?'admin':'user',
+    banned:0, muted:0, warnings:0, kicked:0, joined:Date.now()
+  };
+  users.push(newUser); DB.u = users;
+  authMsg('✅ تم التسجيل!', false);
+  setTimeout(function(){ DB.c = newUser.id; me = newUser; startApp(); }, 500);
+}
+
+function login() {
+  var u = document.getElementById('in-username').value.trim();
+  var p = document.getElementById('in-password').value;
+  if (!u || !p) return authMsg('⚠️ املأ البيانات', true);
+  if (DB.b.find(function(b){return b.name===u;})) return authMsg('🚫 محظور', true);
+  var user = DB.u.find(function(x){return x.name===u && x.password===p;});
+  if (!user) return authMsg('❌ بيانات غلط', true);
+  if (user.banned) return authMsg('🚫 محظور', true);
+  if (user.kicked) return authMsg('👢 مطرد', true);
+  DB.c = user.id; me = user; startApp();
+}
+
+function logout() {
+  if (!confirm('خروج؟')) return;
+  if (botTimer) clearInterval(botTimer);
+  DB.c = null; location.reload();
+}
+function resetAll() { if (!confirm('مسح كل شي؟')) return; try { localStorage.clear(); } catch(e) {} location.reload(); }
+function authMsg(t, err) { var el = document.getElementById('auth-msg'); if (!el) return; el.textContent = t; el.style.color = err ? '#ff4444' : '#0f0'; }
+
+// ============================================
+// 🚀 بدء التطبيق
+// ============================================
+function startApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('main-app').classList.remove('hidden');
+  renderRoomTabs();
+  updateMyInfo();
+  renderMessages();
+  addSystem('✨ أهلاً ' + me.name + '!');
+  setTimeout(function(){ addWelcome(me); }, 600);
+  if (me.role === 'admin') setTimeout(function(){ toast('👑 أنت صاحب الموقع!', 'success'); }, 1000);
+  setTimeout(startBots, 2500);
+}
+
+function updateMyInfo() {
+  var u = DB.u.find(function(x){return x.id===me.id;});
+  if (u) me = u;
+  document.getElementById('my-avatar').src = me.avatar;
+  document.getElementById('my-name').textContent = me.name;
+  var stars = me.level >= 7 ? '🥇' : me.level >= 5 ? '🥈' : me.level >= 3 ? '🥉' : '⭐';
+  if (me.role === 'admin') {
+    document.getElementById('my-points').textContent = stars + ' Lv.∞ • ∞ نقطة';
+  } else {
+    document.getElementById('my-points').textContent = stars + ' Lv.' + me.level + ' • ' + me.points + ' نقطة';
+  }
+}
+
+function addPoints(amount) {
+  // 🚨 صاحب الموقع = نقاط لا نهائية
+  if (me.role === 'admin') return;
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===me.id;});
+  if (!u) return;
+  u.points += amount;
+  var oldLvl = u.level;
+  u.level = Math.floor(u.points/100) + 1;
+  DB.u = users; me = u; updateMyInfo();
+  if (u.level > oldLvl) toast('🎉 وصلت للمستوى ' + u.level + '!', 'success');
+}
+
+function addWelcome(user) {
+  var rooms = DB.r;
+  var room = rooms.find(function(r){return r.id===currentRoom;}) || rooms[0];
+  var msgs = DB.m;
+  msgs.push({
+    id: 'welcome_' + Date.now(), isWelcome: true,
+    text: '👋 أهلاً وسهلاً بـ ' + user.name + ' في غرفة "' + (room ? room.name : 'عامة') + '"! نورت الشات ✨',
+    room: currentRoom, time: Date.now()
+  });
+  DB.m = msgs;
+  renderMessages();
+}
+
+// ============================================
+// 🏠 الغرف
+// ============================================
+function renderRoomTabs() {
+  var el = document.getElementById('room-tabs');
+  if (!el) return;
+  el.innerHTML = '';
+  DB.r.forEach(function(r) {
+    var btn = document.createElement('div');
+    btn.className = 'room-tab' + (r.id === currentRoom ? ' active' : '');
+    btn.textContent = r.em + ' ' + r.name;
+    btn.onclick = function() { switchRoom(r.id); };
+    el.appendChild(btn);
+  });
+}
+
+function switchRoom(roomId) {
+  currentRoom = roomId;
+  renderRoomTabs();
+  renderMessages();
+  var room = DB.r.find(function(r){return r.id===roomId;});
+  if (room) {
+    addSystem('📍 انتقلت لغرفة: ' + room.em + ' ' + room.name);
+    addWelcome(me);
+  }
+}
+
+function openRoomsModal() {
+  if (me.role !== 'admin') return toast('فقط صاحب الموقع يقدر يعدل الغرف', 'error');
+  var rooms = DB.r;
+  var html = '';
+  rooms.forEach(function(r) {
+    html += '<div class="room-item"><span class="em">' + r.em + '</span><span class="name">' + escapeHtml(r.name) + '</span>' +
+      (rooms.length > 1 ? '<button class="del" onclick="deleteRoom(\'' + r.id + '\')">🗑️</button>' : '') + '</div>';
+  });
+  document.getElementById('rooms-list').innerHTML = html;
+  document.getElementById('rooms-modal').classList.remove('hidden');
+}
+
+function addRoom() {
+  if (me.role !== 'admin') return;
+  var em = document.getElementById('new-room-em').value.trim() || '💬';
+  var name = document.getElementById('new-room-name').value.trim();
+  if (!name) return toast('اكتب اسم الغرفة', 'error');
+  var rooms = DB.r;
+  rooms.push({ id: 'room_' + Date.now(), name: name, em: em });
+  DB.r = rooms;
+  document.getElementById('new-room-em').value = '';
+  document.getElementById('new-room-name').value = '';
+  renderRoomTabs();
+  openRoomsModal();
+  toast('✅ تم إضافة الغرفة', 'success');
+}
+
+function deleteRoom(roomId) {
+  if (me.role !== 'admin') return;
+  if (!confirm('حذف هذه الغرفة؟')) return;
+  var rooms = DB.r.filter(function(r){return r.id !== roomId;});
+  DB.r = rooms;
+  if (currentRoom === roomId) currentRoom = rooms[0].id;
+  renderRoomTabs();
+  renderMessages();
+  openRoomsModal();
+  toast('🗑️ تم حذف الغرفة', 'success');
+}
+
+// ============================================
+// 💬 الرسائل
+// ============================================
+function sendMessage() {
+  var input = document.getElementById('msg-input');
+  var text = input.value.trim();
+  if (!text) return;
+  if (me.muted && me.muted > Date.now()) {
+    var left = Math.ceil((me.muted - Date.now())/1000/60);
+    return toast('🔇 مكتوم — باقي ' + left + ' دقيقة', 'error');
+  }
+  var msgs = DB.m;
+  msgs.push({
+    id: Date.now()+Math.random(), userId: me.id, userName: me.name,
+    text: text, avatar: me.avatar, userRole: me.role, reactions: {}, room: currentRoom,
+    replyTo: replyingTo ? {name:replyingTo.userName, text:replyingTo.text} : null,
+    time: Date.now()
+  });
+  DB.m = msgs;
+  addPoints(3);
+  input.value = '';
+  cancelReply();
+  renderMessages();
+}
+
+function renderMessages() {
+  var box = document.getElementById('messages');
+  if (!box) return;
+  var msgs = DB.m.filter(function(m){return (m.room||'general') === currentRoom;});
+  box.innerHTML = '';
+  msgs.forEach(function(m) {
+    if (m.isWelcome) {
+      var wdiv = document.createElement('div');
+      wdiv.className = 'system welcome';
+      wdiv.textContent = m.text;
+      box.appendChild(wdiv);
+      return;
+    }
+    var isMe = m.userId === me.id;
+    var row = document.createElement('div');
+    row.className = 'msg-row ' + (isMe ? 'mine' : 'other');
+    var time = new Date(m.time).toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
+    var quoteHtml = '';
+    if (m.replyTo) quoteHtml = '<div class="quote"><b>' + escapeHtml(m.replyTo.name) + ':</b> ' + escapeHtml(m.replyTo.text.substring(0,40)) + '</div>';
+    var roleIcon = m.userRole === 'admin' ? '👑' : m.userRole === 'super' ? '⭐' : m.userRole === 'mod' ? '🛡️' : '';
+    var emojis = ['❤️','😂','👍','🔥'];
+    var reactionsHtml = '<div class="reactions">';
+    emojis.forEach(function(e) {
+      var count = (m.reactions && m.reactions[e] ? m.reactions[e].length : 0);
+      var reacted = m.reactions && m.reactions[e] && m.reactions[e].indexOf(me.id) > -1;
+      if (count > 0 || !isMe) reactionsHtml += '<div class="reaction-btn ' + (reacted?'reacted':'') + '" onclick="toggleReaction(' + m.id + ',\'' + e + '\')">' + e + ' ' + (count||'') + '</div>';
+    });
+    reactionsHtml += '</div>';
+    var actions = '<button onclick="replyTo(' + m.id + ')">↩️ رد</button>';
+    if (!isMe) actions += '<button onclick="openUserMenu(' + m.userId + ')">⋯ خيارات</button>';
+    row.innerHTML = '<div class="msg"><img class="av" src="' + m.avatar + '" onclick="openUserMenu(' + m.userId + ')"><div class="body"><span class="name" onclick="openUserMenu(' + m.userId + ')">' + roleIcon + ' ' + escapeHtml(m.userName) + '</span><span class="time">' + time + '</span>' + quoteHtml + '<div class="text">' + escapeHtml(m.text) + '</div>' + reactionsHtml + '<div class="msg-actions">' + actions + '</div></div></div>';
+    box.appendChild(row);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function toggleReaction(msgId, emoji) {
+  var msgs = DB.m;
+  var m = msgs.find(function(x){return x.id===msgId;});
+  if (!m) return;
+  m.reactions = m.reactions || {};
+  m.reactions[emoji] = m.reactions[emoji] || [];
+  var idx = m.reactions[emoji].indexOf(me.id);
+  if (idx > -1) m.reactions[emoji].splice(idx,1); else m.reactions[emoji].push(me.id);
+  DB.m = msgs; renderMessages();
+}
+
+function replyTo(msgId) {
+  var m = DB.m.find(function(x){return x.id===msgId;});
+  if (!m) return;
+  replyingTo = { id:m.id, userName:m.userName, text:m.text };
+  document.getElementById('reply-bar').classList.remove('hidden');
+  document.getElementById('reply-name').textContent = m.userName;
+  document.getElementById('msg-input').focus();
+}
+function cancelReply() { replyingTo = null; document.getElementById('reply-bar').classList.add('hidden'); }
+
+function addSystem(text) {
+  var box = document.getElementById('messages');
+  if (!box) return;
+  var div = document.createElement('div');
+  div.className = 'system'; div.textContent = text;
+  box.appendChild(div); box.scrollTop = box.scrollHeight;
+}
+
+// ============================================
+// 🤖 بوتات
+// ============================================
+var BOT_NAMES = ['سارة','ليلى','عمر','نور','خالد','رنا'];
+var BOT_MSGS = ['مرحبا 👋','كيف الحال؟','التصميم حلو 😍','مين بدو يلعب؟','هههه 😂','شات رهيب','منورين ✨'];
+
+function startBots() {
+  if (!me) return;
+  var users = DB.u;
+  BOT_NAMES.forEach(function(name, i) {
+    if (!users.find(function(u){return u.name===name;})) {
+      users.push({
+        id:9000+i, name:name, password:'bot',
+        avatar:'https://api.dicebear.com/7.x/adventurer/svg?seed=' + name,
+        bio:'عضو', points:100+i*50, level:2+i, role:'user',
+        banned:0, muted:0, warnings:0, kicked:0, joined:Date.now()
+      });
+    }
+  });
+  DB.u = users; renderMessages();
+  setTimeout(function(){ addSystem('👋 انضم مستخدمون'); botMsg(); }, 1000);
+  botTimer = setInterval(function(){ if (Math.random() > 0.3) botMsg(); }, 7000);
+}
+
+function botMsg() {
+  if (!me) return;
+  var bots = DB.u.filter(function(u){return u.id>=9000;});
+  if (bots.length === 0) return;
+  var bot = bots[Math.floor(Math.random()*bots.length)];
+  var text = BOT_MSGS[Math.floor(Math.random()*BOT_MSGS.length)];
+  var msgs = DB.m;
+  msgs.push({ id:Date.now()+Math.random(), userId:bot.id, userName:bot.name, text:text, avatar:bot.avatar, userRole:'user', reactions:{}, room:currentRoom, time:Date.now() });
+  DB.m = msgs; renderMessages();
+}
+
+// ============================================
+// 👥 قائمة الأعضاء
+// ============================================
+function openMembers() {
+  document.getElementById('members-search').value = '';
+  renderMembers(DB.u);
+  document.getElementById('members-modal').classList.remove('hidden');
+}
+
+function renderMembers(users) {
+  var html = '';
+  users.forEach(function(u) {
+    var lvl = getRoleLevel(u.role);
+    var tag = '';
+    if (u.banned) tag = '<span class="tag banned">محظور</span>';
+    else if (u.kicked) tag = '<span class="tag banned">مطرد</span>';
+    else if (u.muted > Date.now()) tag = '<span class="tag muted">مكتوم</span>';
+    else if (lvl === 3) tag = '<span class="tag admin">👑</span>';
+    else if (lvl === 2) tag = '<span class="tag super">⭐</span>';
+    else if (lvl === 1) tag = '<span class="tag mod">🛡️</span>';
+    else tag = '<span class="tag user">👤</span>';
+    html += '<div class="member-row"><img src="' + u.avatar + '" onclick="closeModals();openUserMenu(' + u.id + ')"><div class="info"><b>' + escapeHtml(u.name) + ' ' + (u.id === me.id ? '(أنت)' : '') + '</b><small>Lv.' + u.level + ' • ' + u.points + ' نقطة</small></div>' + tag + '</div>';
+  });
+  document.getElementById('members-list').innerHTML = html || '<p style="text-align:center;color:#889;padding:20px;">لا يوجد أعضاء</p>';
+}
+
+function searchMembers() {
+  var q = document.getElementById('members-search').value.trim().toLowerCase();
+  var users = DB.u.filter(function(u){ return u.name.toLowerCase().indexOf(q) > -1; });
+  renderMembers(users);
+}
+
+// ============================================
+// 👤 قائمة المستخدم
+// ============================================
+function openUserMenu(userId) {
+  if (userId === me.id) return openProfile();
+  var user = DB.u.find(function(x){return x.id===userId;});
+  if (!user) return;
+  var myLevel = getRoleLevel(me.role), targetLevel = getRoleLevel(user.role);
+  var canAct = myLevel > targetLevel;
+  var roleIcon = user.role==='admin'?'👑':user.role==='super'?'⭐':user.role==='mod'?'🛡️':'👤';
+  var status = user.banned ? '<span style="color:#ff4444">🚫 محظور</span>' : user.kicked ? '<span style="color:#ffaa00">👢 مطرد</span>' : user.muted > Date.now() ? '<span style="color:#ffaa00">🔇 مكتوم</span>' : '<span style="color:#00ff88">🟢 نشط</span>';
+  var html = '<div style="text-align:center;margin-bottom:12px;"><img src="' + user.avatar + '" style="width:80px;height:80px;border-radius:50%;border:3px solid #00ffff;"><h2 style="margin-top:10px;font-size:18px;color:#00ffff;">' + roleIcon + ' ' + escapeHtml(user.name) + '</h2><p style="color:#889;font-size:12px;margin-top:5px;">' + escapeHtml(user.bio||'') + '</p><p style="margin-top:5px;">' + status + '</p><div style="display:flex;justify-content:center;gap:15px;margin-top:10px;font-size:11px;"><div>⭐ Lv.<b style="color:#00ffff">' + user.level + '</b></div><div>💰 <b style="color:#ff00ff">' + user.points + '</b></div></div></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">';
+  html += '<button onclick="closeModals();openChatWith(' + user.id + ')" class="menu-btn">✉️ خاص</button>';
+  html += '<button onclick="closeModals();openGifts(' + user.id + ')" class="menu-btn">🎁 هدية</button>';
+  html += '<button onclick="closeModals();openGivePoints(' + user.id + ')" class="menu-btn">💰 نقاط</button>';
+  if (canAct && myLevel >= 1) {
+    html += '<button onclick="closeModals();warnUser(' + user.id + ')" class="menu-btn admin-only">⚠️ تحذير</button>';
+    if (user.muted > Date.now()) html += '<button onclick="closeModals();unmuteUser(' + user.id + ')" class="menu-btn admin-only">🔊 فك كتم</button>';
+    else html += '<button onclick="closeModals();muteUser(' + user.id + ')" class="menu-btn admin-only">🔇 كتم</button>';
+  }
+  if (canAct && myLevel >= 2) {
+    if (user.kicked) html += '<button onclick="closeModals();unkickUser(' + user.id + ')" class="menu-btn admin-only">🚪 إلغاء طرد</button>';
+    else html += '<button onclick="closeModals();kickUser(' + user.id + ')" class="menu-btn admin-only">👢 طرد</button>';
+    if (user.banned) html += '<button onclick="closeModals();unbanUser(' + user.id + ')" class="menu-btn danger">✅ فك حظر</button>';
+    else html += '<button onclick="closeModals();banUser(' + user.id + ')" class="menu-btn danger">🚫 حظر</button>';
+  }
+  if (me.role === 'admin' && user.role !== 'admin') {
+    html += '<button onclick="closeModals();setRole(' + user.id + ',\'mod\')" class="menu-btn admin-only">🛡️ مشرف</button>';
+    html += '<button onclick="closeModals();setRole(' + user.id + ',\'super\')" class="menu-btn admin-only">⭐ سوبر</button>';
+    if (user.role !== 'user') html += '<button onclick="closeModals();setRole(' + user.id + ',\'user\')" class="menu-btn">👤 عضو</button>';
+  }
+  html += '</div><button class="close-modal" onclick="closeModals()">إغلاق</button>';
+  document.getElementById('user-modal-content').innerHTML = html;
+  document.getElementById('user-modal').classList.remove('hidden');
+}
+
+function closeModals() { document.querySelectorAll('.modal-bg').forEach(function(m){m.classList.add('hidden');}); }
+
+// ============================================
+// 🔨 إجراءات الإدارة
+// ============================================
+function warnUser(userId) {
+  if (!canModerate()) return toast('ما عندك صلاحية', 'error');
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  if (getRoleLevel(u.role) >= getRoleLevel(me.role)) return toast('ما تقدر', 'error');
+  u.warnings = (u.warnings||0) + 1;
+  if (u.warnings >= 3) { u.muted = Date.now() + 10*60*1000; u.warnings = 0; addSystem('🔇 ' + u.name + ' كتم تلقائي 10 دقائق'); }
+  else addSystem('⚠️ ' + u.name + ' تحذير (' + u.warnings + '/3)');
+  DB.u = users;
+  toast('⚠️ تحذير', 'error');
+}
+
+function muteUser(userId) {
+  if (!canModerate()) return toast('ما عندك صلاحية', 'error');
+  var mins = parseInt(prompt('كم دقيقة كتم؟', '5')) || 5;
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  if (getRoleLevel(u.role) >= getRoleLevel(me.role)) return toast('ما تقدر', 'error');
+  u.muted = Date.now() + mins*60*1000;
+  DB.u = users;
+  addSystem('🔇 ' + u.name + ' مكتوم ' + mins + ' دقيقة');
+  toast('🔇 كتم', 'error');
+}
+
+function unmuteUser(userId) {
+  if (!canModerate()) return;
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  u.muted = 0; DB.u = users;
+  addSystem('🔊 فك كتم ' + u.name);
+  toast('🔊 فك كتم', 'success');
+}
+
+function kickUser(userId) {
+  if (!canKick()) return toast('تحتاج رتبة سوبر', 'error');
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  if (getRoleLevel(u.role) >= getRoleLevel(me.role)) return toast('ما تقدر', 'error');
+  u.kicked = 1; DB.u = users;
+  addSystem('👢 ' + u.name + ' انطرد');
+  toast('👢 طرد', 'error');
+}
+
+function unkickUser(userId) {
+  if (!canKick()) return;
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  u.kicked = 0; DB.u = users;
+  addSystem('🚪 رجع ' + u.name);
+  toast('✅ رجع', 'success');
+}
+
+function banUser(userId) {
+  if (!canBan()) return toast('تحتاج رتبة سوبر', 'error');
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  if (getRoleLevel(u.role) >= getRoleLevel(me.role)) return toast('ما تقدر', 'error');
+  var reason = prompt('سبب الحظر:', 'مخالفة') || 'مخالفة';
+  u.banned = 1; DB.u = users;
+  var bans = DB.b;
+  bans.push({ name:u.name, reason:reason, by:me.name, until:me.role==='admin'?0:Date.now()+24*60*60*1000, time:Date.now() });
+  DB.b = bans;
+  addSystem('🚫 ' + u.name + ' محظور - ' + reason);
+  toast('🚫 حظر', 'error');
+}
+
+function unbanUser(userId) {
+  if (!canBan()) return;
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  u.banned = 0; DB.u = users;
+  var bans = DB.b.filter(function(b){return b.name!==u.name;});
+  DB.b = bans;
+  addSystem('✅ فك حظر ' + u.name);
+  toast('✅ فك حظر', 'success');
+}
+
+function setRole(userId, newRole) {
+  if (!canPromote()) return;
+  var users = DB.u;
+  var u = users.find(function(x){return x.id===userId;});
+  if (u.role === 'admin') return;
+  u.role = newRole; DB.u = users;
+  var msg = newRole==='mod'?'🛡️ ' + u.name + ' مشرف':newRole==='super'?'⭐ ' + u.name + ' سوبر أدمن':'👤 ' + u.name + ' عضو';
+  addSystem(msg); toast(msg, 'success');
+}
+
+function openBansList() {
+  if (!canModerate()) return toast('ما عندك صلاحية', 'error');
+  var bans = DB.b;
+  var muted = DB.u.filter(function(u){return u.muted > Date.now();});
+  var kicked = DB.u.filter(function(u){return u.kicked;});
+  var html = '';
+  if (muted.length > 0) {
+    html += '<h3 style="color:#ffaa00;font-size:14px;margin:10px 0;">🔇 المكتومين:</h3>';
+    muted.forEach(function(u) {
+      var left = Math.ceil((u.muted - Date.now())/1000/60);
+      html += '<div class="opponent-item"><img src="' + u.avatar + '"><div class="info"><b>' + escapeHtml(u.name) + '</b><small>باقي ' + left + ' دقيقة</small></div><button onclick="unmuteUser(' + u.id + ');closeModals();openBansList()" class="btn-fix">🔊</button></div>';
+    });
+  }
+  if (kicked.length > 0) {
+    html += '<h3 style="color:#ffaa00;font-size:14px;margin:10px 0;">👢 المطردين:</h3>';
+    kicked.forEach(function(u) {
+      html += '<div class="opponent-item"><img src="' + u.avatar + '"><div class="info"><b>' + escapeHtml(u.name) + '</b><small>مطرد</small></div><button onclick="unkickUser(' + u.id + ');closeModals();openBansList()" class="btn-fix">✅</button></div>';
+    });
+  }
+  if (bans.length > 0) {
+    html += '<h3 style="color:#ff4444;font-size:14px;margin:10px 0;">🚫 المحظورين:</h3>';
+    bans.forEach(function(b) {
+      var u = DB.u.find(function(x){return x.name===b.name;});
+      var dur = b.until === 0 ? 'دائم' : 'باقي ' + Math.ceil((b.until - Date.now())/1000/60/60) + ' ساعة';
+      html += '<div class="opponent-item"><img src="' + (u?u.avatar:'https://api.dicebear.com/7.x/adventurer/svg?seed=' + b.name) + '"><div class="info"><b>' + escapeHtml(b.name) + '</b><small>' + dur + ' - ' + escapeHtml(b.reason) + '</small></div>' + (u ? '<button onclick="unbanUser(' + u.id + ');closeModals();openBansList()" class="btn-fix">✅</button>' : '') + '</div>';
+    });
+  }
+  if (muted.length === 0 && kicked.length === 0 && bans.length === 0) html = '<p style="text-align:center;color:#889;padding:20px;">ما في إجراءات ✨</p>';
+  html += '<button class="close-modal" onclick="closeModals()">إغلاق</button>';
+  document.getElementById('bans-list').innerHTML = html;
+  document.getElementById('bans-modal').classList.remove('hidden');
+}
+
+// ============================================
+// 🎁 هدايا وإهداء نقاط
+// ============================================
+function openGifts(userId) {
+  var user = DB.u.find(function(x){return x.id===userId;});
+  if (!user) return;
+  var gifts = [{em:'🌹',pts:5},{em:'❤️',pts:10},{em:'🍫',pts:15},{em:'🎂',pts:20},{em:'👑',pts:50},{em:'💎',pts:100}];
+  var html = '<h2>🎁 هدية لـ ' + escapeHtml(user.name) + '</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0;">';
+  gifts.forEach(function(g) { html += '<button onclick="sendGift(' + user.id + ',' + g.pts + ')" class="gift-btn">' + g.em + '<br><small style="color:#ff00f
