@@ -164,6 +164,14 @@ footer { padding: 9px 11px; background: #12122a; border-top: 2px solid #00ffff33
 .toast.gift { background: linear-gradient(135deg, #ff00ff22, #00ffff22); font-size: 15px; }
 </style>
 </head>
+  <script>
+window.onerror = function(msg, url, line) {
+  var el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:15px;z-index:99999;font-size:14px;';
+  el.textContent = 'خطأ: ' + msg + ' (سطر ' + line + ')';
+  document.body.appendChild(el);
+};
+  </script>
 <body>
   <div id="auth-screen">
   <div class="auth-box">
